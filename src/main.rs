@@ -12,12 +12,14 @@ use bevy_spritesheet_animation::{
 
 mod input;
 mod generation;
+mod projectiles;
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins);
     app.add_plugins(SpritesheetAnimationPlugin);
     app.add_plugins(input::InputPlugin);
     app.add_plugins(generation::GenerationPlugin);
+    app.add_plugins(projectiles::ProjectilesPlugin);
     //app.add_plugins(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(SCALE));
     //app.add_plugins(RapierDebugRenderPlugin::default());
     // app.insert_resource(RapierConfiguration {
@@ -181,6 +183,7 @@ fn setup_character(
                 },
                 // Add a SpritesheetAnimation component that references our newly created animation
                 SpritesheetAnimation::from_id(idle_down_animation),
+                projectiles::PureProjectileSkill{cooldown:Timer::from_seconds(5.0, TimerMode::Repeating)}
             ))
             .id();
         if let Ok(camera_entity) = camera.get_single_mut() {
