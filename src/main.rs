@@ -1,17 +1,18 @@
 use bevy::{
     core::FrameCount,
+    input::{common_conditions::input_just_pressed, keyboard::KeyboardInput},
     prelude::*,
-    render::texture::{ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor},    
+    render::texture::{ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor},
     utils::HashMap,
 };
-
+use bevy_rapier2d::prelude::*;
 use bevy_spritesheet_animation::{
     animation::AnimationId, component::SpritesheetAnimation, library::SpritesheetLibrary,
     plugin::SpritesheetAnimationPlugin, spritesheet::Spritesheet,
 };
 
-mod input;
 mod generation;
+mod input;
 mod projectiles;
 fn main() {
     let mut app = App::new();
@@ -20,14 +21,19 @@ fn main() {
     app.add_plugins(input::InputPlugin);
     app.add_plugins(generation::GenerationPlugin);
     app.add_plugins(projectiles::ProjectilesPlugin);
-    //app.add_plugins(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(SCALE));
-    //app.add_plugins(RapierDebugRenderPlugin::default());
-    // app.insert_resource(RapierConfiguration {
-    //     gravity: Vec2::ZERO,
-    //     ..RapierConfiguration::new(1.0)
-    // });
+    app.add_plugins(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(generation::SCALE));
+    app.add_plugins(RapierDebugRenderPlugin::default());
+    app.insert_resource(RapierConfiguration {
+        gravity: Vec2::ZERO,
+        ..RapierConfiguration::new(1.0)
+    });
     app.add_systems(Startup, setup_graphics);
     app.add_systems(Update, setup_character);
+
+    app.add_systems(
+        Update,
+        spawn_slime.run_if(input_just_pressed(KeyCode::Space)),
+    );
     app.run();
 }
 
@@ -181,9 +187,13 @@ fn setup_character(
                     transform: Transform::from_xyz(0., 0., 1.),
                     ..default()
                 },
+                Collider::cuboid(16.0, 32.0),
+                CollisionGroups::new(PLAYER_GROUP,ENEMY_GROUP),
                 // Add a SpritesheetAnimation component that references our newly created animation
                 SpritesheetAnimation::from_id(idle_down_animation),
-                projectiles::PureProjectileSkill{cooldown:Timer::from_seconds(5.0, TimerMode::Repeating)}
+                projectiles::PureProjectileSkill {
+                    cooldown: Timer::from_seconds(5.0, TimerMode::Repeating),
+                },
             ))
             .id();
         if let Ok(camera_entity) = camera.get_single_mut() {
@@ -192,6 +202,62 @@ fn setup_character(
         }
     }
 }
+const PLAYER_GROUP:Group = Group::GROUP_1;
+const PROJECTILE_GROUP:Group = Group::GROUP_2;
+const ENEMY_GROUP:Group = Group::GROUP_3;
+fn spawn_slime(
+    mut commands: Commands,
+    mut library: ResMut<SpritesheetLibrary>,
+    mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    assets: Res<AssetServer>,
+) {
+    // Space was pressed
+
+    let texture = assets.load_with_settings(
+        "enemies/Slime.png",
+        |s: &mut ImageLoaderSettings| match &mut s.sampler {
+            ImageSampler::Default => s.sampler = ImageSampler::nearest(),
+            ImageSampler::Descriptor(sampler) => {
+                *sampler = ImageSamplerDescriptor::nearest();
+            }
+        },
+    );
+    let layout = atlas_layouts.add(TextureAtlasLayout::from_grid(
+        Vec2::new(100.0, 100.0),
+        6,
+        5,
+        None,
+        None,
+    ));
+    let sheet = Spritesheet::new(6, 5);
+    let clip = library.new_clip(|clip| {
+        clip.push_frame_indices(sheet.row_partial(0, 0..6));
+    });
+    let animation = library.new_animation(|animation| {
+        animation.add_stage(clip.into());
+    });
+    commands
+        .spawn(Slime)
+        .insert(SpriteSheetBundle {
+            texture,
+            atlas: TextureAtlas {
+                layout,
+                ..default()
+            },
+            transform: Transform::from_xyz(96.0, 0.0, 1.0),
+            ..default()
+        })
+        .insert(Collider::cuboid(16.0, 16.0))
+        .insert(Health(2))
+        .insert(CollisionGroups::new(ENEMY_GROUP,PLAYER_GROUP|PROJECTILE_GROUP))
+        .insert(SpritesheetAnimation::from_id(animation));
+}
+
+#[derive(Component)]
+struct Slime;
+
+#[derive(Component)]
+struct Health(u32);
 
 #[derive(Component, Default)]
 struct Player {
@@ -210,5 +276,3 @@ enum PlayerAnimation {
     WalkDown,
     WalkUp,
 }
-
-

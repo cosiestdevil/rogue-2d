@@ -4,6 +4,7 @@ use bevy::{
     render::{render_asset::RenderAssetUsages, texture::ImageSampler},
     tasks::{futures_lite::future, AsyncComputeTaskPool, Task},
 };
+use bevy_rapier2d::geometry::Collider;
 use image::{Pixel, Rgba};
 use noise::{Abs, Exponent, Fbm, MultiFractal, NoiseFn, Perlin};
 use rayon::prelude::*;
@@ -15,7 +16,7 @@ struct Chunk {
 }
 pub struct GenerationPlugin;
 
-const SCALE: f32 = 8.0;
+pub const SCALE: f32 = 8.0;
 const SIZE: usize = 300_000_000;
 const NOISE_SCALE: f64 = 2000.;
 const SPAWN_CHUNKS: i32 = 16;
