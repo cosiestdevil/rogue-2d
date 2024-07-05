@@ -1,36 +1,47 @@
 use std::time::Duration;
 
-use bevy::{prelude::*, render::texture::{ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor}, utils::HashMap};
-use bevy_rapier2d::geometry::{Collider, CollisionGroups};
-use bevy_spritesheet_animation::{animation::AnimationId, component::SpritesheetAnimation, library::SpritesheetLibrary, spritesheet::Spritesheet};
+use bevy::{
+    prelude::*,
+    render::texture::{ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor},
+    utils::HashMap,
+};
+use bevy_rapier2d::{
+    control::KinematicCharacterController,
+    dynamics::{LockedAxes, RigidBody},
+    geometry::{Collider, CollisionGroups, Restitution},
+    pipeline::CollisionEvent,
+};
+use bevy_spritesheet_animation::{
+    animation::AnimationId, component::SpritesheetAnimation, library::SpritesheetLibrary,
+    spritesheet::Spritesheet,
+};
 use rand::{thread_rng, Rng};
 
-use crate::{Health, Player,  ENEMY_GROUP, PLAYER_GROUP, PROJECTILE_GROUP};
+use crate::{Health, Player, ENEMY_GROUP, PLAYER_GROUP, PROJECTILE_GROUP};
 pub struct EnemiesPlugin;
-impl Plugin for EnemiesPlugin{
+impl Plugin for EnemiesPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            spawn_slime/* .run_if(input_just_pressed(KeyCode::Space))*/,
+            spawn_slime, /* .run_if(input_just_pressed(KeyCode::Space))*/
         );
         app.add_systems(Update, move_slime);
-        app.insert_resource(SlimeSpawn{
-            cooldown:Timer::from_seconds(2.0, TimerMode::Once),
-            cooldown_func:|time|{
+        app.add_systems(Update, slime_hurt_player);
+        app.insert_resource(SlimeSpawn {
+            cooldown: Timer::from_seconds(2.0, TimerMode::Once),
+            cooldown_func: |time| {
                 let delay = (300.0 - time.as_secs_f32()).powf(0.3) * 0.1;
-                info!(delay);
                 Duration::from_secs_f32(delay)
-            }
+            },
         });
     }
 }
 
 #[derive(Resource)]
-struct SlimeSpawn{
-    cooldown:Timer,
-    cooldown_func:fn(Duration)->Duration
+struct SlimeSpawn {
+    cooldown: Timer,
+    cooldown_func: fn(Duration) -> Duration,
 }
-
 
 fn spawn_slime(
     mut commands: Commands,
@@ -38,16 +49,15 @@ fn spawn_slime(
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     assets: Res<AssetServer>,
     player: Query<&Transform, With<Player>>,
-    time:Res<Time>,
-    mut slime_spawn:ResMut<SlimeSpawn>
-
+    time: Res<Time>,
+    mut slime_spawn: ResMut<SlimeSpawn>,
 ) {
     // Space was pressed
     slime_spawn.cooldown.tick(time.delta());
-    if !slime_spawn.cooldown.just_finished(){
+    if !slime_spawn.cooldown.just_finished() {
         return;
     }
-    slime_spawn.cooldown = Timer::new((slime_spawn.cooldown_func)(time.elapsed()),TimerMode::Once);
+    slime_spawn.cooldown = Timer::new((slime_spawn.cooldown_func)(time.elapsed()), TimerMode::Once);
     let texture =
         assets.load_with_settings(
             "enemies/Slime.png",
@@ -89,7 +99,10 @@ fn spawn_slime(
     let offset_y: f32 = thread_rng().gen_range(-256.0..256.0);
     origin.x += offset_x;
     origin.y += offset_y;
-    let mut slime = Slime::default();
+    let mut slime = Slime {
+        damage: 1,
+        ..default()
+    };
     slime.animations.insert(SlimeAnimation::Idle, animation);
     slime
         .animations
@@ -109,25 +122,37 @@ fn spawn_slime(
             ..default()
         })
         .insert(Collider::cuboid(16.0, 16.0))
+        .insert(LockedAxes::ROTATION_LOCKED)
+        .insert(Restitution::coefficient(2.0))
+        .insert(RigidBody::Dynamic)
         .insert(Health(2))
         .insert(CollisionGroups::new(
             ENEMY_GROUP,
             PLAYER_GROUP | PROJECTILE_GROUP,
         ))
+        .insert(KinematicCharacterController::default())
         .insert(SpritesheetAnimation::from_id(animation));
 }
 fn move_slime(
     mut commands: Commands,
-    mut slimes: Query<(Entity, &mut Transform, &Slime), (With<Slime>, Without<Player>)>,
+    mut slimes: Query<
+        (
+            Entity,
+            &Transform,
+            &mut KinematicCharacterController,
+            &Slime,
+        ),
+        (With<Slime>, Without<Player>),
+    >,
     player: Query<&Transform, With<Player>>,
     time: Res<Time>,
 ) {
     let Ok(player) = player.get_single() else {
         return;
     };
-    for (slime_entity, mut slime_transform, slime) in slimes.iter_mut() {
+    for (slime_entity, slime_transform, mut slime_controller, slime) in slimes.iter_mut() {
         let direction = (player.translation - slime_transform.translation).normalize();
-        slime_transform.translation += direction * 96.0 * time.delta_seconds();
+        slime_controller.translation = Some((direction * 96.0 * time.delta_seconds()).truncate());
         let moving = direction.length() > 0.0;
         let animation = if moving {
             if direction.x > 0.0 {
@@ -148,7 +173,40 @@ fn move_slime(
 }
 #[derive(Component, Default)]
 struct Slime {
+    damage: u32,
     animations: HashMap<SlimeAnimation, AnimationId>,
+}
+
+fn slime_hurt_player(
+    mut commands: Commands,
+    mut collision_events: EventReader<CollisionEvent>,
+    slime: Query<&Slime>,
+    mut player: Query<&mut Health, With<Player>>,
+) {
+    for collision_event in collision_events.read() {
+        if let CollisionEvent::Started(a, b, _flags) = collision_event {
+            if let Ok(slime) = slime.get(*a) {
+                if let Ok(mut health) = player.get_mut(*b) {
+                    health.0 = health.0.saturating_sub(slime.damage);
+                    if health.0 == 0 {
+                        info!("Played Died");
+                        commands.entity(*b).despawn_recursive();
+                    }
+                    //commands.entity(*a).despawn_recursive();
+                }
+            } else if let Ok(slime) = slime.get(*b) {
+                if let Ok(mut health) = player.get_mut(*a) {
+                    health.0 = health.0.saturating_sub(slime.damage);
+                    if health.0 == 0 {
+                        info!("Played Died");
+                        commands.entity(*a).despawn_recursive();
+                    }
+                    //commands.entity(*b).despawn_recursive();
+                }
+            }
+        }
+        info!("Received collision event: {:?}", collision_event)
+    }
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Hash)]

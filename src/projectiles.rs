@@ -18,7 +18,7 @@ impl Plugin for ProjectilesPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, spawn_pure_projectile);
         app.add_systems(Update, remove_projectile);
-        app.add_systems(Update, projectile_collids);
+        app.add_systems(Update, projectile_collide);
     }
 }
 
@@ -106,7 +106,7 @@ fn remove_projectile(
     }
 }
 
-fn projectile_collids(
+fn projectile_collide(
     mut commands: Commands,
     mut collision_events: EventReader<CollisionEvent>,
     projectiles: Query<&Projectile>,
@@ -132,7 +132,7 @@ fn projectile_collids(
                 }
             }
         }
-        info!("Received collision event: {:?}", collision_event);
+        //info!("Received collision event: {:?}", collision_event);
     }
 }
 

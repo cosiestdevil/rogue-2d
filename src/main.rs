@@ -190,13 +190,15 @@ fn setup_character(
                     ..default()
                 },
                 Collider::cuboid(16.0, 32.0),
+                Health(20),
                 CollisionGroups::new(PLAYER_GROUP, ENEMY_GROUP),
                 // Add a SpritesheetAnimation component that references our newly created animation
                 SpritesheetAnimation::from_id(idle_down_animation),
                 projectiles::PureProjectileSkill {
                     cooldown: Timer::from_seconds(5.0, TimerMode::Repeating),
                 },
-            ))
+            ))           
+            .insert(ActiveEvents::COLLISION_EVENTS)
             .id();
         if let Ok(camera_entity) = camera.get_single_mut() {
             let mut camera = commands.entity(camera_entity);
