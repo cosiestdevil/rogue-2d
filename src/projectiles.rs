@@ -17,7 +17,7 @@ pub struct ProjectilesPlugin;
 impl Plugin for ProjectilesPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, spawn_pure_projectile);
-        app.add_systems(Update, move_projectile);
+        app.add_systems(Update, remove_projectile);
         app.add_systems(Update, projectile_collids);
     }
 }
@@ -93,19 +93,16 @@ fn spawn_pure_projectile(
     }
 }
 
-fn move_projectile(
+fn remove_projectile(
     mut commands: Commands,
-    mut projectiles: Query<(Entity, &mut Projectile, &mut Transform)>,
+    mut projectiles: Query<(Entity, &mut Projectile)>,
     time: ResMut<Time>,
 ) {
-    for (entity, mut projectile, mut transform) in projectiles.iter_mut() {
+    for (entity, mut projectile) in projectiles.iter_mut() {
         projectile.lifespan.tick(time.delta());
         if projectile.lifespan.just_finished() {
             commands.entity(entity).despawn_recursive();
-        } else {
-            //let a = projectile.rotation * (Vec3::X);
-            //transform.translation += a * 128.0 * time.delta_seconds();
-        }
+        } 
     }
 }
 
@@ -116,7 +113,7 @@ fn projectile_collids(
     mut health: Query<&mut Health>,
 ) {
     for collision_event in collision_events.read() {
-        if let CollisionEvent::Started(a, b, flags) = collision_event {
+        if let CollisionEvent::Started(a, b, _flags) = collision_event {
             if let Ok(projectile) = projectiles.get(*a) {
                 if let Ok(mut health) = health.get_mut(*b) {
                     health.0 = health.0.saturating_sub(projectile.damage);

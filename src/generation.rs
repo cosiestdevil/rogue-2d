@@ -4,7 +4,6 @@ use bevy::{
     render::{render_asset::RenderAssetUsages, texture::ImageSampler},
     tasks::{futures_lite::future, AsyncComputeTaskPool, Task},
 };
-use bevy_rapier2d::geometry::Collider;
 use image::{Pixel, Rgba};
 use noise::{Abs, Exponent, Fbm, MultiFractal, NoiseFn, Perlin};
 use rayon::prelude::*;
@@ -207,10 +206,6 @@ fn start_level(frames: Res<FrameCount>, mut commands: Commands) {
             let task = thread_pool.spawn(gen_chunk(pos));
             commands
                 .spawn(Chunk { pos })
-                // .insert(Collider::cuboid(
-                //     CHUNK_SIZE as f32 * SCALE / 2.0,
-                //     CHUNK_SIZE as f32 * SCALE / 2.0,
-                // ))
                 .insert(SpatialBundle::from_transform(Transform::from_translation(
                     Vec2::new(
                         (x * CHUNK_SIZE as i32) as f32 * SCALE,
