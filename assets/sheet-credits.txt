@@ -1,0 +1,55 @@
+Authors: drjamgo@hotmail.com, Benjamin K. Smith (BenCreating), bluecarrot16, TheraHedwig, Evert, MuffinElZangano, Durrani, Pierre Vigier (pvigier), ElizaWy, Matthew Krohn (makrohn), Johannes Sjölund (wulax), Stephen Challener (Redshrike), JaidynReiman, Nila122, Mandi Paugh, William.Thompsonj
+
+- shadow/adult/shadow.png: by drjamgo@hotmail.com. License(s): CC0. 
+    - https://opengameart.org/content/shadow-for-lpc-sprite
+
+- body/bodies/female/light.png: by Benjamin K. Smith (BenCreating), bluecarrot16, TheraHedwig, Evert, MuffinElZangano, Durrani, Pierre Vigier (pvigier), ElizaWy, Matthew Krohn (makrohn), Johannes Sjölund (wulax), Stephen Challener (Redshrike). License(s): OGA-BY 3.0, CC-BY-SA 3.0, GPL 3.0. see details at https://opengameart.org/content/lpc-character-bases
+    - https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles
+    - https://opengameart.org/content/lpc-medieval-fantasy-character-sprites
+    - https://opengameart.org/content/lpc-ladies
+    - https://opengameart.org/content/lpc-7-womens-shirts
+    - https://opengameart.org/content/lpc-jump-expanded
+
+- head/heads/human/male/light.png: by bluecarrot16, Benjamin K. Smith (BenCreating), Stephen Challener (Redshrike). License(s): OGA-BY 3.0, CC-BY-SA 3.0, GPL 3.0. original head by Redshrike; tweaks by BenCreating; modular version by bluecarrot16
+    - https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles
+    - https://opengameart.org/content/lpc-character-bases
+
+- head/ears/cat/adult_front/sandy.png: by JaidynReiman. License(s): OGA-BY 3.0+, CC-BY 3.0+, GPL 3.0. 
+    - https://opengameart.org/content/lpc-furry-ears-tails-for-rpg-sprites
+
+- head/ears/cat/adult_back/sandy.png: by JaidynReiman. License(s): OGA-BY 3.0+, CC-BY 3.0+, GPL 3.0. 
+    - https://opengameart.org/content/lpc-furry-ears-tails-for-rpg-sprites
+
+- eyes/human/adult/green.png: by JaidynReiman, Matthew Krohn (makrohn), Stephen Challener (Redshrike). License(s): OGA-BY 3.0, CC-BY-SA 3.0, GPL 3.0. original by Redshrike, mapped to all frames by Matthew Krohn & JaidynReiman
+    - https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles
+
+- eyes/eyebrows/thin/adult/sandy.png: by ElizaWy. License(s): OGA-BY 3.0. 
+    - https://github.com/ElizaWy/LPC/tree/main/Characters/Hair
+
+- hair/braid/female/sandy.png: by Nila122, ElizaWy. License(s): OGA-BY 3.0, CC-BY-SA 3.0, GPL 3.0, GPL 2.0. 
+    - https://opengameart.org/content/3-hairs-for-lpc
+    - https://opengameart.org/content/lpc-hair
+
+- torso/clothes/corset/female/red.png: by ElizaWy, Nila122. License(s): CC-BY-SA 3.0, GPL 3.0. 
+    - https://opengameart.org/content/lpc-clothes-and-hair
+    - https://opengameart.org/content/lpc-7-womens-shirts
+
+- cape/solid/female/leather.png: by bluecarrot16, JaidynReiman. License(s): OGA-BY 3.0, CC-BY-SA 3.0, GPL 3.0. 
+    - https://opengameart.org/content/lpc-curly-hair-elven-ears-white-cape-with-blue-trim-and-more
+    - https://opengameart.org/content/lpc-roman-armor
+    - http://opengameart.org/content/lpc-clothing-updates
+
+- cape/solid_behind/leather.png: by Nila122, JaidynReiman. License(s): OGA-BY 3.0, CC-BY-SA 3.0, GPL 3.0. 
+    - https://opengameart.org/content/lpc-curly-hair-elven-ears-white-cape-with-blue-trim-and-more
+    - https://opengameart.org/content/lpc-roman-armor
+
+- cape/trim/female/red.png: by bluecarrot16, JaidynReiman. License(s): OGA-BY 3.0, CC-BY-SA 3.0, GPL 3.0. isolated stripe from cape_trimmed, adapted to v3 bases by bluecarrot16
+    - https://opengameart.org/content/lpc-curly-hair-elven-ears-white-cape-with-blue-trim-and-more
+    - http://opengameart.org/content/lpc-clothing-updates
+
+- legs/leggings/female/black.png: by bluecarrot16, Mandi Paugh, Stephen Challener (Redshrike), William.Thompsonj. License(s): OGA-BY 3.0. 
+    - http://opengameart.org/content/sara-wizard
+    - https://opengameart.org/content/lpc-sara
+
+- feet/boots_rim/universal/female/black.png: by JaidynReiman. License(s): OGA-BY 3.0+, CC-BY 3.0+, GPL 3.0. 
+    - https://opengameart.org/content/lpc-relm-outfit-pieces-2-kimonos-2-sleeves-2-boots-tabi-socks

@@ -1,0 +1,38 @@
+InputConfig(
+    bindings: {
+        "PlayerInput": {
+            "Move": [
+                DualAxis(
+                    x: Hold([Key(KeyA)], [Key(KeyD)]),
+                    y: Hold([Key(KeyS)], [Key(KeyW)]),
+                ),
+                DualAxis(
+                    x: Analog(
+                        input: GamePad(LeftStickX),
+                        sensitivity: Sensitivity(1.0),
+                    ),
+                    y: Analog(
+                        input: GamePad(LeftStickY),
+                        sensitivity: Sensitivity(1.0),
+                    ),
+                ),
+            ],
+            "Face": [
+                DualAxis(
+                    x: Hold([Key(ArrowLeft)], [Key(ArrowRight)]),
+                    y: Hold([Key(ArrowDown)], [Key(ArrowUp)]),
+                ),
+                DualAxis(
+                    x: Analog(
+                        input: GamePad(RightStickX),
+                        sensitivity: Sensitivity(1.0),
+                    ),
+                    y: Analog(
+                        input: GamePad(RightStickY),
+                        sensitivity: Sensitivity(1.0),
+                    ),
+                ),
+            ],
+        },
+    },
+)
