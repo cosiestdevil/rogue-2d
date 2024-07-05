@@ -10,6 +10,7 @@ use bevy_spritesheet_animation::{
     animation::AnimationId, component::SpritesheetAnimation, library::SpritesheetLibrary,
     plugin::SpritesheetAnimationPlugin, spritesheet::Spritesheet,
 };
+use rand::{thread_rng, Rng};
 
 mod generation;
 mod input;
@@ -210,6 +211,7 @@ fn spawn_slime(
     mut library: ResMut<SpritesheetLibrary>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     assets: Res<AssetServer>,
+    player:Query<&Transform,With<Player>>
 ) {
     // Space was pressed
 
@@ -236,6 +238,11 @@ fn spawn_slime(
     let animation = library.new_animation(|animation| {
         animation.add_stage(clip.into());
     });
+    let mut origin = player.single().translation;
+    let offset_x:f32 = thread_rng().gen_range(-256.0..256.0);
+    let offset_y:f32 = thread_rng().gen_range(-256.0..256.0);
+    origin.x += offset_x;
+    origin.y += offset_y;
     commands
         .spawn(Slime)
         .insert(SpriteSheetBundle {
@@ -244,7 +251,7 @@ fn spawn_slime(
                 layout,
                 ..default()
             },
-            transform: Transform::from_xyz(96.0, 0.0, 1.0),
+            transform: Transform::from_translation(origin),
             ..default()
         })
         .insert(Collider::cuboid(16.0, 16.0))
