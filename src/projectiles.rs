@@ -11,14 +11,14 @@ use bevy_spritesheet_animation::{
     component::SpritesheetAnimation, library::SpritesheetLibrary, spritesheet::Spritesheet,
 };
 
-use crate::{Health, Player};
+use crate::{GameState, Health, Player};
 
 pub struct ProjectilesPlugin;
 impl Plugin for ProjectilesPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, spawn_pure_projectile);
-        app.add_systems(Update, remove_projectile);
-        app.add_systems(Update, projectile_collide);
+        app.add_systems(Update, spawn_pure_projectile.run_if(in_state(GameState::Playing)));
+        app.add_systems(Update, remove_projectile.run_if(in_state(GameState::Playing)));
+        app.add_systems(Update, projectile_collide.run_if(in_state(GameState::Playing)));
     }
 }
 

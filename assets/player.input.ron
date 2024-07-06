@@ -34,5 +34,12 @@ InputConfig(
                 ),
             ],
         },
+        "MenuInput":{
+            "Accept":[
+                Pulse(JustPressed([Key(Enter)])),
+                Pulse(JustPressed([Gamepad(South)]))
+
+            ]
+        }
     },
 )

@@ -17,16 +17,16 @@ use bevy_spritesheet_animation::{
 };
 use rand::{thread_rng, Rng};
 
-use crate::{Health, Player, ENEMY_GROUP, PLAYER_GROUP, PROJECTILE_GROUP};
+use crate::{GameState, Health, Player, ENEMY_GROUP, PLAYER_GROUP, PROJECTILE_GROUP};
 pub struct EnemiesPlugin;
 impl Plugin for EnemiesPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            spawn_slime, /* .run_if(input_just_pressed(KeyCode::Space))*/
+            spawn_slime.run_if(in_state(GameState::Playing)),
         );
-        app.add_systems(Update, move_slime);
-        app.add_systems(Update, slime_hurt_player);
+        app.add_systems(Update, move_slime.run_if(in_state(GameState::Playing)));
+        app.add_systems(Update, slime_hurt_player.run_if(in_state(GameState::Playing)));
         app.insert_resource(SlimeSpawn {
             cooldown: Timer::from_seconds(2.0, TimerMode::Once),
             cooldown_func: |time| {
@@ -178,10 +178,11 @@ struct Slime {
 }
 
 fn slime_hurt_player(
-    mut commands: Commands,
+    mut _commands: Commands,
     mut collision_events: EventReader<CollisionEvent>,
     slime: Query<&Slime>,
     mut player: Query<&mut Health, With<Player>>,
+    mut next_state: ResMut<NextState<GameState>>
 ) {
     for collision_event in collision_events.read() {
         if let CollisionEvent::Started(a, b, _flags) = collision_event {
@@ -190,7 +191,7 @@ fn slime_hurt_player(
                     health.0 = health.0.saturating_sub(slime.damage);
                     if health.0 == 0 {
                         info!("Played Died");
-                        commands.entity(*b).despawn_recursive();
+                        next_state.set(GameState::DeathScreen);
                     }
                     //commands.entity(*a).despawn_recursive();
                 }
@@ -199,7 +200,7 @@ fn slime_hurt_player(
                     health.0 = health.0.saturating_sub(slime.damage);
                     if health.0 == 0 {
                         info!("Played Died");
-                        commands.entity(*a).despawn_recursive();
+                        next_state.set(GameState::DeathScreen);
                     }
                     //commands.entity(*b).despawn_recursive();
                 }

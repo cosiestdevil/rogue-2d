@@ -8,6 +8,8 @@ use image::{Pixel, Rgba};
 use noise::{Abs, Exponent, Fbm, MultiFractal, NoiseFn, Perlin};
 use rayon::prelude::*;
 
+use crate::GameState;
+
 #[derive(Component)]
 struct Chunk {
     #[allow(dead_code)]
@@ -30,7 +32,7 @@ const SEED: u32 = 1928877623;
 impl Plugin for GenerationPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, start_level);
-        app.add_systems(Update, chunk_generated);
+        app.add_systems(Update, chunk_generated.run_if(in_state(GameState::Playing)));
     }
 }
 async fn gen_chunk(chunk_pos: IVec2) -> Option<ChunkGenerationResult> {
@@ -199,7 +201,7 @@ struct GeneratingChunk {
 }
 
 fn start_level(frames: Res<FrameCount>, mut commands: Commands) {
-    if frames.0 == 75 {
+    if frames.0 == 10 {
         let thread_pool = AsyncComputeTaskPool::get();
         for (x, y) in spiral::ChebyshevIterator::new(0, 0, SPAWN_CHUNKS) {
             let pos = IVec2::new(x, y);

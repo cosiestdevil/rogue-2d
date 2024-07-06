@@ -2,16 +2,34 @@ use bevy::prelude::*;
 use bevy_ineffable::{config::simple_asset_loading::MergeMode, prelude::*};
 use bevy_spritesheet_animation::component::SpritesheetAnimation;
 
-use crate::{Player, PlayerAnimation};
+use crate::{GameState, Player, PlayerAnimation};
 
 pub struct InputPlugin;
 impl Plugin for InputPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(IneffablePlugin);
         app.register_input_action::<PlayerInput>();
+        app.register_input_action::<MenuInput>();
         app.add_systems(Startup, init);
-        app.add_systems(Update, player_movement);
-        app.add_systems(Update, player_rotate);
+        app.add_systems(Update, start_playing.run_if(in_state(GameState::StartScreen)));
+        app.add_systems(Update, player_movement.run_if(in_state(GameState::Playing)));
+        app.add_systems(Update, player_rotate.run_if(in_state(GameState::Playing)));
+    }
+}
+#[derive(InputAction)]
+pub enum MenuInput {
+    /// In this example, the only thing the player can do is honk.
+    /// We must define what kind of input Honk is. Honking is
+    /// enacted instantaneously, so we'll define it as a pulse.
+    #[ineffable(pulse)]
+    Accept,
+    // You can add more actions here...
+}
+
+fn start_playing(mut next_state: ResMut<NextState<GameState>>, bindings: Res<Ineffable>,){
+    if bindings.just_pulsed(ineff!(MenuInput::Accept)) {
+        info!("Accept Pressed");
+        next_state.set(GameState::Playing);
     }
 }
 
