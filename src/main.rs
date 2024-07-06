@@ -348,6 +348,12 @@ struct Dead{
     timer:Timer
 }
 
+#[derive(Component)]
+struct Hurt{
+    timer:Timer
+}
+
+
 fn despawn_dead(mut commands: Commands,mut dead:Query<(Entity,&mut Dead)>,time:Res<Time>){
     for (entity,mut dead) in  dead.iter_mut(){
         dead.timer.tick(time.delta());

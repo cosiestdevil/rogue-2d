@@ -16,8 +16,7 @@ use bevy_spritesheet_animation::{
 use rand::{thread_rng, Rng};
 
 use crate::{
-    DamageBuffer, DamageSource, Dead, GameState, Health, Level, Player, ENEMY_GROUP, PLAYER_GROUP,
-    PROJECTILE_GROUP,
+    DamageBuffer, DamageSource, Dead, GameState, Health, Hurt, Level, Player, ENEMY_GROUP, PLAYER_GROUP, PROJECTILE_GROUP
 };
 pub struct EnemiesPlugin;
 impl Plugin for EnemiesPlugin {
@@ -29,7 +28,9 @@ impl Plugin for EnemiesPlugin {
             Update,
             slime_hurt_player.run_if(in_state(GameState::Playing)),
         );
-        app.add_systems(Update, slime_death.run_if(in_state(GameState::Playing)).after(move_slime));
+        app.add_systems(Update, slime_death.run_if(in_state(GameState::Playing)).after(slime_hurt));
+        app.add_systems(Update, slime_hurt.run_if(in_state(GameState::Playing)).after(move_slime));
+        app.add_systems(Update,hurt_timer.run_if(in_state(GameState::Playing)).after(move_slime));
         app.insert_resource(SlimeSpawn {
             cooldown: Timer::from_seconds(6.0, TimerMode::Once),
             cooldown_func: |time| {
@@ -62,6 +63,12 @@ fn setup_slime_animations(
     let walk_right_animation = library.new_animation(|animation| {
         animation.add_stage(walk_right_clip.into());
     });
+    let hurt_clip = library.new_clip(|clip| {
+        clip.push_frame_indices(sheet.row_partial(4, 0..4));
+        clip.set_default_duration(
+            AnimationDuration::PerCycle(500),
+        );
+    });
     let death_clip = library.new_clip(|clip| {
         clip.push_frame_indices(sheet.row_partial(5, 0..4));
         clip.set_default_duration(
@@ -69,17 +76,24 @@ fn setup_slime_animations(
         );
     });
     let death_animation = library.new_animation(|animation| {
+        animation.add_stage(hurt_clip.into());
         animation.add_stage(death_clip.into());
+    });
+    
+    let hurt_animation = library.new_animation(|animation| {
+        animation.add_stage(hurt_clip.into());
     });
     library.name_animation(animation, SLIME_IDLE_ANIMATION).unwrap();
     library.name_animation(walk_left_animation, SLIME_WALK_LEFT_ANIMATION).unwrap();
     library.name_animation(walk_right_animation, SLIME_WALK_RIGHT_ANIMATION).unwrap();
     library.name_animation(death_animation, SLIME_DEATH_ANIMATION).unwrap();
+    library.name_animation(hurt_animation, SLIME_HURT_ANIMATION).unwrap();
 }
 const SLIME_IDLE_ANIMATION: &str = "slime idle";
 const SLIME_WALK_LEFT_ANIMATION: &str = "slime walk left";
 const SLIME_WALK_RIGHT_ANIMATION: &str = "slime walk right";
 const SLIME_DEATH_ANIMATION: &str = "slime death";
+const SLIME_HURT_ANIMATION: &str = "slime hurt";
 #[derive(Resource)]
 struct SlimeSpawn {
     cooldown: Timer,
@@ -174,7 +188,7 @@ fn move_slime(
             &Transform,
             &mut KinematicCharacterController,
         ),
-        (With<Slime>, Without<Player>,Without<Dead>),
+        (With<Slime>, Without<Player>,Without<Dead>,Without<Hurt>),
     >,
     player: Query<&Transform, With<Player>>,
     time: Res<Time>,
@@ -219,6 +233,29 @@ fn slime_death(
             slime.insert(Dead {
                 timer: Timer::from_seconds(1.0, TimerMode::Once),
             });
+        }
+    }
+}
+fn slime_hurt(mut commands: Commands,mut slimes: Query<Entity, (With<Slime>, Without<Dead>,Added<Hurt>)>,
+library: Res<SpritesheetLibrary>){
+    for slime in slimes.iter(){
+        // hurt.timer.tick(time.delta());
+        // if hurt_ref.is_added(){
+            commands.entity(slime).insert(SpritesheetAnimation::from_id(
+                library.animation_with_name(SLIME_HURT_ANIMATION).unwrap(),
+            ));
+        // }
+        // if hurt.timer.just_finished(){
+        //     commands.entity(slime).remove::<Hurt>();
+        // }
+    }
+}
+
+fn hurt_timer(mut commands: Commands, mut hurt:Query<(Entity,&mut Hurt),Without<Dead>>,time:Res<Time>){
+    for (entity,mut hurt) in hurt.iter_mut(){
+        hurt.timer.tick(time.delta());
+        if hurt.timer.just_finished(){
+            commands.entity(entity).remove::<Hurt>();
         }
     }
 }
