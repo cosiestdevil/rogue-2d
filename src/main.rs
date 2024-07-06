@@ -29,7 +29,7 @@ fn main() {
     app.add_plugins(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(
         generation::SCALE,
     ));
-    app.add_plugins(RapierDebugRenderPlugin::default());
+    //app.add_plugins(RapierDebugRenderPlugin::default());
     app.insert_resource(RapierConfiguration {
         gravity: Vec2::ZERO,
         ..RapierConfiguration::new(1.0)
@@ -343,9 +343,15 @@ fn apply_damage(
     }
 }
 
-fn despawn_dead(mut commands: Commands,healths:Query<(Entity,&Health)>){
-    for (entity,health) in  healths.iter(){
-        if health.current == 0 {
+#[derive(Component)]
+struct Dead{
+    timer:Timer
+}
+
+fn despawn_dead(mut commands: Commands,mut dead:Query<(Entity,&mut Dead)>,time:Res<Time>){
+    for (entity,mut dead) in  dead.iter_mut(){
+        dead.timer.tick(time.delta());
+        if dead.timer.finished() {
             commands.entity(entity).despawn_recursive();
         }
     }

@@ -61,6 +61,7 @@ fn spawn_pure_projectile(
             let sheet = Spritesheet::new(5, 5);
             let clip = library.new_clip(|clip| {
                 clip.push_frame_indices(sheet.row_partial(0, 0..5));
+                clip.set_default_duration(bevy_spritesheet_animation::animation::AnimationDuration::PerCycle(5000));
             });
             let animation = library.new_animation(|animation| {
                 animation.add_stage(clip.into());

@@ -3,7 +3,6 @@ use std::time::Duration;
 use bevy::{
     prelude::*,
     render::texture::{ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor},
-    utils::HashMap,
 };
 use bevy_rapier2d::{
     control::KinematicCharacterController,
@@ -12,24 +11,25 @@ use bevy_rapier2d::{
     pipeline::CollisionEvent,
 };
 use bevy_spritesheet_animation::{
-    animation::AnimationId, component::SpritesheetAnimation, library::SpritesheetLibrary,
-    spritesheet::Spritesheet,
+    animation::AnimationDuration, component::SpritesheetAnimation, library::SpritesheetLibrary, spritesheet::Spritesheet
 };
 use rand::{thread_rng, Rng};
 
 use crate::{
-    DamageBuffer, DamageSource, GameState, Health, Level, Player, ENEMY_GROUP, PLAYER_GROUP,
+    DamageBuffer, DamageSource, Dead, GameState, Health, Level, Player, ENEMY_GROUP, PLAYER_GROUP,
     PROJECTILE_GROUP,
 };
 pub struct EnemiesPlugin;
 impl Plugin for EnemiesPlugin {
     fn build(&self, app: &mut App) {
+        app.add_systems(Startup, setup_slime_animations);
         app.add_systems(Update, spawn_slime.run_if(in_state(GameState::Playing)));
         app.add_systems(Update, move_slime.run_if(in_state(GameState::Playing)));
         app.add_systems(
             Update,
             slime_hurt_player.run_if(in_state(GameState::Playing)),
         );
+        app.add_systems(Update, slime_death.run_if(in_state(GameState::Playing)).after(move_slime));
         app.insert_resource(SlimeSpawn {
             cooldown: Timer::from_seconds(6.0, TimerMode::Once),
             cooldown_func: |time| {
@@ -40,48 +40,9 @@ impl Plugin for EnemiesPlugin {
     }
 }
 
-#[derive(Resource)]
-struct SlimeSpawn {
-    cooldown: Timer,
-    cooldown_func: fn(Duration) -> Duration,
-}
-#[allow(clippy::too_many_arguments)]
-fn spawn_slime(
-    mut commands: Commands,
+fn setup_slime_animations(
     mut library: ResMut<SpritesheetLibrary>,
-    mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
-    assets: Res<AssetServer>,
-    player: Query<&Transform, With<Player>>,
-    time: Res<Time>,
-    mut slime_spawn: ResMut<SlimeSpawn>,
-    level: Res<Level>,
 ) {
-    // Space was pressed
-    slime_spawn.cooldown.tick(time.delta());
-    if !slime_spawn.cooldown.just_finished() {
-        return;
-    }
-    slime_spawn.cooldown = Timer::new(
-        (slime_spawn.cooldown_func)(level.runtime.elapsed()),
-        TimerMode::Once,
-    );
-    let texture =
-        assets.load_with_settings(
-            "enemies/Slime.png",
-            |s: &mut ImageLoaderSettings| match &mut s.sampler {
-                ImageSampler::Default => s.sampler = ImageSampler::nearest(),
-                ImageSampler::Descriptor(sampler) => {
-                    *sampler = ImageSamplerDescriptor::nearest();
-                }
-            },
-        );
-    let layout = atlas_layouts.add(TextureAtlasLayout::from_grid(
-        Vec2::new(100.0, 100.0),
-        6,
-        6,
-        None,
-        None,
-    ));
     let sheet = Spritesheet::new(6, 6);
     let clip = library.new_clip(|clip| {
         clip.push_frame_indices(sheet.row_partial(0, 0..6));
@@ -101,6 +62,50 @@ fn spawn_slime(
     let walk_right_animation = library.new_animation(|animation| {
         animation.add_stage(walk_right_clip.into());
     });
+    let death_clip = library.new_clip(|clip| {
+        clip.push_frame_indices(sheet.row_partial(5, 0..4));
+        clip.set_default_duration(
+            AnimationDuration::PerCycle(1000),
+        );
+    });
+    let death_animation = library.new_animation(|animation| {
+        animation.add_stage(death_clip.into());
+    });
+    library.name_animation(animation, SLIME_IDLE_ANIMATION).unwrap();
+    library.name_animation(walk_left_animation, SLIME_WALK_LEFT_ANIMATION).unwrap();
+    library.name_animation(walk_right_animation, SLIME_WALK_RIGHT_ANIMATION).unwrap();
+    library.name_animation(death_animation, SLIME_DEATH_ANIMATION).unwrap();
+}
+const SLIME_IDLE_ANIMATION: &str = "slime idle";
+const SLIME_WALK_LEFT_ANIMATION: &str = "slime walk left";
+const SLIME_WALK_RIGHT_ANIMATION: &str = "slime walk right";
+const SLIME_DEATH_ANIMATION: &str = "slime death";
+#[derive(Resource)]
+struct SlimeSpawn {
+    cooldown: Timer,
+    cooldown_func: fn(Duration) -> Duration,
+}
+#[allow(clippy::too_many_arguments)]
+fn spawn_slime(
+    mut commands: Commands,
+    library: ResMut<SpritesheetLibrary>,
+    mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    assets: Res<AssetServer>,
+    player: Query<&Transform, With<Player>>,
+    time: Res<Time>,
+    mut slime_spawn: ResMut<SlimeSpawn>,
+    level: Res<Level>,
+) {
+    // Space was pressed
+    slime_spawn.cooldown.tick(time.delta());
+    if !slime_spawn.cooldown.just_finished() {
+        return;
+    }
+    slime_spawn.cooldown = Timer::new(
+        (slime_spawn.cooldown_func)(level.runtime.elapsed()),
+        TimerMode::Once,
+    );
+
     let player_translation = player.single().translation;
     let mut origin = player_translation;
     let offset_x: f32 = thread_rng().gen_range(-256.0..256.0);
@@ -110,17 +115,26 @@ fn spawn_slime(
     if player_translation.distance(origin) < 32.0 {
         origin += (origin - player_translation).normalize() * 32.0
     }
-    let mut slime = Slime {
+    let slime = Slime {
         damage: 1,
-        ..default()
     };
-    slime.animations.insert(SlimeAnimation::Idle, animation);
-    slime
-        .animations
-        .insert(SlimeAnimation::WalkLeft, walk_left_animation);
-    slime
-        .animations
-        .insert(SlimeAnimation::WalkRight, walk_right_animation);
+    let texture =
+        assets.load_with_settings(
+            "enemies/Slime.png",
+            |s: &mut ImageLoaderSettings| match &mut s.sampler {
+                ImageSampler::Default => s.sampler = ImageSampler::nearest(),
+                ImageSampler::Descriptor(sampler) => {
+                    *sampler = ImageSamplerDescriptor::nearest();
+                }
+            },
+        );
+    let layout = atlas_layouts.add(TextureAtlasLayout::from_grid(
+        Vec2::new(100.0, 100.0),
+        6,
+        6,
+        None,
+        None,
+    ));
     commands
         .spawn(slime)
         .insert(SpriteSheetBundle {
@@ -148,7 +162,9 @@ fn spawn_slime(
             PLAYER_GROUP | PROJECTILE_GROUP,
         ))
         .insert(KinematicCharacterController::default())
-        .insert(SpritesheetAnimation::from_id(animation));
+        .insert(SpritesheetAnimation::from_id(
+            library.animation_with_name(SLIME_IDLE_ANIMATION).unwrap(),
+        ));
 }
 fn move_slime(
     mut commands: Commands,
@@ -157,41 +173,59 @@ fn move_slime(
             Entity,
             &Transform,
             &mut KinematicCharacterController,
-            &Slime,
         ),
-        (With<Slime>, Without<Player>),
+        (With<Slime>, Without<Player>,Without<Dead>),
     >,
     player: Query<&Transform, With<Player>>,
     time: Res<Time>,
+    library: Res<SpritesheetLibrary>,
 ) {
     let Ok(player) = player.get_single() else {
         return;
     };
-    for (slime_entity, slime_transform, mut slime_controller, slime) in slimes.iter_mut() {
+    for (slime_entity, slime_transform, mut slime_controller) in slimes.iter_mut() {
         let direction = (player.translation - slime_transform.translation).normalize();
         slime_controller.translation = Some((direction * 32.0 * time.delta_seconds()).truncate());
         let moving = direction.length() > 0.0;
         let animation = if moving {
             if direction.x > 0.0 {
-                &SlimeAnimation::WalkRight
+                SLIME_WALK_RIGHT_ANIMATION
             } else {
-                &SlimeAnimation::WalkLeft
+                SLIME_WALK_LEFT_ANIMATION
             }
         } else {
-            &SlimeAnimation::Idle
+            SLIME_IDLE_ANIMATION
         };
         let Some(mut slime_entity) = commands.get_entity(slime_entity) else {
             return;
         };
         slime_entity.try_insert(SpritesheetAnimation::from_id(
-            *slime.animations.get(animation).unwrap(),
+            library.animation_with_name(animation).unwrap(),
         ));
     }
 }
+
+fn slime_death(
+    mut commands: Commands,
+    slimes: Query<(Entity, &Health), (With<Slime>, Without<Dead>)>,
+    library: Res<SpritesheetLibrary>,
+) {
+    for (slime, health) in slimes.iter() {
+        if health.current == 0 {
+            let mut slime = commands.entity(slime);
+            slime.insert(SpritesheetAnimation::from_id(
+                library.animation_with_name(SLIME_DEATH_ANIMATION).unwrap(),
+            ));
+            slime.insert(Dead {
+                timer: Timer::from_seconds(1.0, TimerMode::Once),
+            });
+        }
+    }
+}
+
 #[derive(Component, Default)]
 struct Slime {
     damage: u32,
-    animations: HashMap<SlimeAnimation, AnimationId>,
 }
 
 fn slime_hurt_player(
@@ -255,11 +289,4 @@ fn slime_hurt_player(
             }
         }
     }
-}
-
-#[derive(PartialEq, Eq, PartialOrd, Hash)]
-enum SlimeAnimation {
-    Idle,
-    WalkRight,
-    WalkLeft,
 }
