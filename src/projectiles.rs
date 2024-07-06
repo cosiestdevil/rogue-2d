@@ -11,7 +11,7 @@ use bevy_spritesheet_animation::{
     component::SpritesheetAnimation, library::SpritesheetLibrary, spritesheet::Spritesheet,
 };
 
-use crate::{GameState, Health, Player};
+use crate::{DamageBuffer, DamageSource, GameState, Health, Player};
 
 pub struct ProjectilesPlugin;
 impl Plugin for ProjectilesPlugin {
@@ -109,30 +109,57 @@ fn remove_projectile(
 fn projectile_collide(
     mut commands: Commands,
     mut collision_events: EventReader<CollisionEvent>,
-    projectiles: Query<&Projectile>,
-    mut health: Query<&mut Health>,
+    projectile: Query<(&Projectile, Option<&Children>)>,
+    damage_source: Query<Entity, With<DamageSource>>,
+    mut other: Query<&mut DamageBuffer, With<Health>>,
 ) {
     for collision_event in collision_events.read() {
-        if let CollisionEvent::Started(a, b, _flags) = collision_event {
-            if let Ok(projectile) = projectiles.get(*a) {
-                if let Ok(mut health) = health.get_mut(*b) {
-                    health.0 = health.0.saturating_sub(projectile.damage);
-                    if health.0 == 0{
-                        commands.entity(*b).despawn_recursive();
+        match collision_event {
+            CollisionEvent::Started(a, b, _flags) => {
+                if let Ok((projectile, _)) = projectile.get(*a) {
+                    if let Ok(mut other) = other.get_mut(*b) {
+                        let damage_entity = commands.spawn(DamageSource).id();
+                        commands.entity(*b).add_child(damage_entity);
+                        other.0.push(crate::Damage {
+                            source: damage_entity,
+                            amount: projectile.damage,
+                        });
                     }
-                    commands.entity(*a).despawn_recursive();
+                } else if let Ok((projectile, _)) = projectile.get(*b) {
+                    if let Ok(mut player) = other.get_mut(*a) {
+                        let damage_entity = commands.spawn(DamageSource).id();
+                        commands.entity(*b).add_child(damage_entity);
+                        player.0.push(crate::Damage {
+                            source: damage_entity,
+                            amount: projectile.damage,
+                        });
+                    }
                 }
-            } else if let Ok(projectile) = projectiles.get(*b) {
-                if let Ok(mut health) = health.get_mut(*a) {
-                    health.0 = health.0.saturating_sub(projectile.damage);
-                    if health.0 == 0{
-                        commands.entity(*a).despawn_recursive();
+            }
+            CollisionEvent::Stopped(a, b, _flags) => {
+                if let Ok((_, children)) = projectile.get(*a) {
+                    if other.get(*b).is_ok() {
+                        if let Some(children) = children {
+                            for &child in children.iter() {
+                                if let Ok(source) = damage_source.get(child) {
+                                    commands.entity(source).despawn_recursive();
+                                }
+                            }
+                        }
                     }
-                    commands.entity(*b).despawn_recursive();
+                } else if let Ok((_, children)) = projectile.get(*b) {
+                    if other.get(*a).is_ok() {
+                        if let Some(children) = children {
+                            for &child in children.iter() {
+                                if let Ok(source) = damage_source.get(child) {
+                                    commands.entity(source).despawn_recursive();
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
-        //info!("Received collision event: {:?}", collision_event);
     }
 }
 

@@ -17,16 +17,16 @@ use bevy_spritesheet_animation::{
 };
 use rand::{thread_rng, Rng};
 
-use crate::{GameState, Health, Player, ENEMY_GROUP, PLAYER_GROUP, PROJECTILE_GROUP};
+use crate::{DamageBuffer, DamageSource, GameState, Health, Player, ENEMY_GROUP, PLAYER_GROUP, PROJECTILE_GROUP};
 pub struct EnemiesPlugin;
 impl Plugin for EnemiesPlugin {
     fn build(&self, app: &mut App) {
+        app.add_systems(Update, spawn_slime.run_if(in_state(GameState::Playing)));
+        app.add_systems(Update, move_slime.run_if(in_state(GameState::Playing)));
         app.add_systems(
             Update,
-            spawn_slime.run_if(in_state(GameState::Playing)),
+            slime_hurt_player.run_if(in_state(GameState::Playing)),
         );
-        app.add_systems(Update, move_slime.run_if(in_state(GameState::Playing)));
-        app.add_systems(Update, slime_hurt_player.run_if(in_state(GameState::Playing)));
         app.insert_resource(SlimeSpawn {
             cooldown: Timer::from_seconds(2.0, TimerMode::Once),
             cooldown_func: |time| {
@@ -125,7 +125,12 @@ fn spawn_slime(
         .insert(LockedAxes::ROTATION_LOCKED)
         .insert(Restitution::coefficient(2.0))
         .insert(RigidBody::Dynamic)
-        .insert(Health(2))
+        .insert(Health {
+            current: 2,
+            max: 2,
+            invulnerability_timer: None,
+            invulnerability_duration: Duration::ZERO,
+        })
         .insert(CollisionGroups::new(
             ENEMY_GROUP,
             PLAYER_GROUP | PROJECTILE_GROUP,
@@ -178,35 +183,65 @@ struct Slime {
 }
 
 fn slime_hurt_player(
-    mut _commands: Commands,
+    mut commands: Commands,
     mut collision_events: EventReader<CollisionEvent>,
-    slime: Query<&Slime>,
-    mut player: Query<&mut Health, With<Player>>,
-    mut next_state: ResMut<NextState<GameState>>
+    slime: Query<(&Slime, Option<&Children>)>,
+    damage_source: Query<Entity, With<DamageSource>>,
+    mut player: Query<&mut DamageBuffer, With<Player>>,
 ) {
     for collision_event in collision_events.read() {
-        if let CollisionEvent::Started(a, b, _flags) = collision_event {
-            if let Ok(slime) = slime.get(*a) {
-                if let Ok(mut health) = player.get_mut(*b) {
-                    health.0 = health.0.saturating_sub(slime.damage);
-                    if health.0 == 0 {
-                        info!("Played Died");
-                        next_state.set(GameState::DeathScreen);
+        match collision_event {
+            CollisionEvent::Started(a, b, _flags) => {
+                if let Ok((slime, _)) = slime.get(*a) {
+                    if let Ok(mut player) = player.get_mut(*b) {
+                        info!("Slime Started Colliding With Player");
+                        let damage_entity = commands.spawn(DamageSource).id();
+                        commands.entity(*a).add_child(damage_entity);
+                        player.0.push(crate::Damage {
+                            source: damage_entity,
+                            amount: slime.damage,
+                        });
                     }
-                    //commands.entity(*a).despawn_recursive();
+                } else if let Ok((slime, _)) = slime.get(*b) {
+                    if let Ok(mut player) = player.get_mut(*a) {
+                        info!("Slime Started Colliding With Player");
+                        let damage_entity = commands.spawn(DamageSource).id();
+                        commands.entity(*b).add_child(damage_entity);
+                        player.0.push(crate::Damage {
+                            source: damage_entity,
+                            amount: slime.damage,
+                        });
+                    }
                 }
-            } else if let Ok(slime) = slime.get(*b) {
-                if let Ok(mut health) = player.get_mut(*a) {
-                    health.0 = health.0.saturating_sub(slime.damage);
-                    if health.0 == 0 {
-                        info!("Played Died");
-                        next_state.set(GameState::DeathScreen);
+            }
+            CollisionEvent::Stopped(a, b, _flags) => {
+                if let Ok((_, children)) = slime.get(*a) {
+                    if player.get(*b).is_ok() {
+                        info!("Slime Stopped Colliding With Player");
+                        if let Some(children) = children {
+                            info!("Slime Had Children");
+                            for &child in children.iter() {
+                                if let Ok(source) = damage_source.get(child) {
+                                    commands.entity(source).despawn_recursive();
+                                }
+                            }
+                        }
                     }
-                    //commands.entity(*b).despawn_recursive();
+                } else if let Ok((_, children)) = slime.get(*b) {
+                    if player.get(*a).is_ok() {
+                        info!("Slime Stopped Colliding With Player");
+                        if let Some(children) = children {
+                            info!("Slime Had Children");
+                            for &child in children.iter() {
+                                if let Ok(source) = damage_source.get(child) {
+                                    commands.entity(source).despawn_recursive();
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
-        info!("Received collision event: {:?}", collision_event)
     }
 }
 

@@ -1,8 +1,12 @@
 #![allow(clippy::type_complexity)]
 
+use std::time::Duration;
+
 use bevy::{
     //core::FrameCount,
-    prelude::*, render::texture::{ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor}, utils::HashMap
+    prelude::*,
+    render::texture::{ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor},
+    utils::HashMap,
 };
 use bevy_rapier2d::prelude::*;
 use bevy_spritesheet_animation::{
@@ -35,43 +39,54 @@ fn main() {
     app.add_systems(Startup, setup_start_screen);
     app.add_systems(OnExit(GameState::StartScreen), teardown_start_screen);
     app.add_systems(OnEnter(GameState::Playing), setup_character);
+    app.add_systems(Update, apply_damage.run_if(in_state(GameState::Playing)));
 
     app.run();
 }
 
-fn setup_start_screen(mut commands: Commands,asset_server:Res<AssetServer>,window: Query<&Window>) {
+fn setup_start_screen(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    window: Query<&Window>,
+) {
     let window = window.single();
 
     let mut width = window.resolution.width();
     let mut height = window.resolution.height();
-    if width > height{
+    if width > height {
         //Landscape
         height = width / 16.0 * 9.0;
-    }else if width < height{
+    } else if width < height {
         //Portrait
         width = height / 9.0 * 16.0;
     }
-    commands.spawn(NodeBundle {
-        style: Style {
-            display: Display::Grid,
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.),
-            justify_items:JustifyItems::Center,
-            align_items:AlignItems::Center,
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                display: Display::Grid,
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.),
+                justify_items: JustifyItems::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
             ..default()
-        },
-        ..default()
-    }).insert(StartScreen).with_children(|commands|{
-
-        commands.spawn(ImageBundle{
-            style:Style{width:Val::Px(width),height:Val::Px(height),..default()},
-            image:UiImage::new(asset_server.load("start_screen.png")),
-            ..default()
+        })
+        .insert(StartScreen)
+        .with_children(|commands| {
+            commands.spawn(ImageBundle {
+                style: Style {
+                    width: Val::Px(width),
+                    height: Val::Px(height),
+                    ..default()
+                },
+                image: UiImage::new(asset_server.load("start_screen.png")),
+                ..default()
+            });
         });
-    });
 }
-fn teardown_start_screen(mut commands: Commands,screens:Query<Entity,With<StartScreen>>){
-    for screen in screens.iter(){
+fn teardown_start_screen(mut commands: Commands, screens: Query<Entity, With<StartScreen>>) {
+    for screen in screens.iter() {
         commands.entity(screen).despawn_recursive();
     }
 }
@@ -236,8 +251,15 @@ fn setup_character(
                 ..default()
             },
             Collider::cuboid(16.0, 32.0),
-            Health(20),
+            Sensor,
+            Health {
+                current: 20,
+                max: 20,
+                invulnerability_timer: None,
+                invulnerability_duration: Duration::from_secs(2),
+            },
             CollisionGroups::new(PLAYER_GROUP, ENEMY_GROUP),
+            DamageBuffer::default(),
             // Add a SpritesheetAnimation component that references our newly created animation
             SpritesheetAnimation::from_id(idle_down_animation),
             projectiles::PureProjectileSkill {
@@ -246,6 +268,13 @@ fn setup_character(
         ))
         .insert(ActiveEvents::COLLISION_EVENTS)
         .id();
+    commands
+        .spawn((
+            TransformBundle::from_transform(Transform::from_translation(Vec3::ZERO)),
+            Collider::cuboid(12.0, 28.0),
+            CollisionGroups::new(PLAYER_GROUP, ENEMY_GROUP),
+        ))
+        .set_parent(player_id);
     if let Ok(camera_entity) = camera.get_single_mut() {
         let mut camera = commands.entity(camera_entity);
         camera.set_parent(player_id);
@@ -257,7 +286,50 @@ const PROJECTILE_GROUP: Group = Group::GROUP_2;
 const ENEMY_GROUP: Group = Group::GROUP_3;
 
 #[derive(Component)]
-struct Health(u32);
+struct Health {
+    current: u32,
+    max: u32,
+    invulnerability_timer: Option<Timer>,
+    invulnerability_duration: Duration,
+}
+#[derive(Component, Default, Debug)]
+struct DamageBuffer(Vec<Damage>);
+#[derive(Debug)]
+struct Damage {
+    source: Entity,
+    amount: u32,
+}
+#[derive(Component)]
+struct DamageSource;
+fn apply_damage(
+    mut commands: Commands,
+    mut query: Query<(&mut DamageBuffer, &mut Health)>,
+    time: Res<Time>,
+) {
+    for (mut buffer, mut health) in query.iter_mut() {
+        if let Some(ref mut invuln) = &mut health.invulnerability_timer {
+            if !invuln.finished() {
+                invuln.tick(time.delta());
+                continue;
+            }
+        }
+        let mut took_damage = false;
+        buffer.0.retain_mut(|damage| {
+            if commands.get_entity(damage.source).is_some() {
+                took_damage = true;
+                info!("Taking {}", damage.amount);
+                health.current = health.current.saturating_sub(damage.amount);
+                true
+            } else {
+                false
+            }
+        });
+        if took_damage && health.invulnerability_duration > Duration::ZERO {
+            health.invulnerability_timer =
+                Some(Timer::new(health.invulnerability_duration, TimerMode::Once));
+        }
+    }
+}
 
 #[derive(Component, Default)]
 struct Player {
