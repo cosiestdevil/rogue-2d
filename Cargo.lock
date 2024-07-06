@@ -832,15 +832,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bevy_pancam"
-version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6e50ba0b6cf11b847ef589ddc50646880dcb0a316b2653edcf231ef26202b32"
-dependencies = [
- "bevy",
-]
-
-[[package]]
 name = "bevy_pbr"
 version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3475,7 +3466,6 @@ dependencies = [
  "async-std",
  "bevy",
  "bevy_ineffable",
- "bevy_pancam",
  "bevy_rapier2d",
  "bevy_spritesheet_animation",
  "image",

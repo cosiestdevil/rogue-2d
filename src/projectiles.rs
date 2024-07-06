@@ -18,9 +18,18 @@ use crate::{DamageBuffer, DamageSource, GameState, Health, Player};
 pub struct ProjectilesPlugin;
 impl Plugin for ProjectilesPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, spawn_pure_projectile.run_if(in_state(GameState::Playing)));
-        app.add_systems(Update, remove_projectile.run_if(in_state(GameState::Playing)));
-        app.add_systems(Update, projectile_collide.run_if(in_state(GameState::Playing)));
+        app.add_systems(
+            Update,
+            spawn_pure_projectile.run_if(in_state(GameState::Playing)),
+        );
+        app.add_systems(
+            Update,
+            remove_projectile.run_if(in_state(GameState::Playing)),
+        );
+        app.add_systems(
+            Update,
+            projectile_collide.run_if(in_state(GameState::Playing)),
+        );
     }
 }
 
@@ -62,8 +71,9 @@ fn spawn_pure_projectile(
                 Quat::from_axis_angle(Vec3::Z, ((player.facing + 270.0) % 360.0).to_radians());
             commands
                 .spawn(Projectile {
+                    single: true,
                     lifespan: Timer::from_seconds(5.0, TimerMode::Once),
-                    damage:2,
+                    damage: 1,
                 })
                 .insert(SpriteSheetBundle {
                     texture,
@@ -80,6 +90,7 @@ fn spawn_pure_projectile(
                     ..default()
                 })
                 .insert(Collider::cuboid(16.0, 8.0))
+                .insert(Sensor)
                 .insert(CollisionGroups::new(
                     crate::PROJECTILE_GROUP,
                     crate::ENEMY_GROUP,
@@ -104,7 +115,7 @@ fn remove_projectile(
         projectile.lifespan.tick(time.delta());
         if projectile.lifespan.just_finished() {
             commands.entity(entity).despawn_recursive();
-        } 
+        }
     }
 }
 
@@ -113,30 +124,38 @@ fn projectile_collide(
     mut collision_events: EventReader<CollisionEvent>,
     mut projectile: Query<(&mut Projectile, Option<&Children>)>,
     damage_source: Query<Entity, With<DamageSource>>,
-    mut other: Query<&mut DamageBuffer, With<Health>>,
+    mut other: Query<(&mut DamageBuffer, &mut Health)>,
 ) {
     for collision_event in collision_events.read() {
         match collision_event {
             CollisionEvent::Started(a, b, _flags) => {
                 if let Ok((mut projectile, _)) = projectile.get_mut(*a) {
-                    if let Ok(mut other) = other.get_mut(*b) {
-                        let damage_entity = commands.spawn(DamageSource).id();
-                        commands.entity(*b).add_child(damage_entity);
-                        other.0.push(crate::Damage {
-                            source: damage_entity,
-                            amount: projectile.damage,
-                        });
-                        projectile.lifespan = Timer::new(Duration::from_millis(100), TimerMode::Once);
+                    if let Ok((mut other, mut health)) = other.get_mut(*b) {
+                        if projectile.single {
+                            health.current = health.current.saturating_sub(projectile.damage);
+                            commands.entity(*a).despawn_recursive();
+                        } else {
+                            let damage_entity = commands.spawn(DamageSource).id();
+                            commands.entity(*a).add_child(damage_entity);
+                            other.0.push(crate::Damage {
+                                source: damage_entity,
+                                amount: projectile.damage,
+                            });
+                        }
                     }
                 } else if let Ok((mut projectile, _)) = projectile.get_mut(*b) {
-                    if let Ok(mut player) = other.get_mut(*a) {
-                        let damage_entity = commands.spawn(DamageSource).id();
-                        commands.entity(*b).add_child(damage_entity);
-                        player.0.push(crate::Damage {
-                            source: damage_entity,
-                            amount: projectile.damage,
-                        });
-                        projectile.lifespan = Timer::new(Duration::from_millis(100), TimerMode::Once);
+                    if let Ok((mut other, mut health)) = other.get_mut(*a) {
+                        if projectile.single {
+                            health.current = health.current.saturating_sub(projectile.damage);
+                            commands.entity(*b).despawn_recursive();
+                        } else {
+                            let damage_entity = commands.spawn(DamageSource).id();
+                            commands.entity(*b).add_child(damage_entity);
+                            other.0.push(crate::Damage {
+                                source: damage_entity,
+                                amount: projectile.damage,
+                            });
+                        }
                     }
                 }
             }
@@ -171,6 +190,7 @@ fn projectile_collide(
 struct Projectile {
     lifespan: Timer,
     damage: u32,
+    single: bool,
 }
 #[derive(Component)]
 pub struct PureProjectileSkill {

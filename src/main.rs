@@ -41,6 +41,7 @@ fn main() {
     app.add_systems(OnEnter(GameState::Playing), setup_character);
     app.add_systems(Update, apply_damage.run_if(in_state(GameState::Playing)));
     app.add_systems(Update, despawn_dead.run_if(in_state(GameState::Playing)));
+    app.add_systems(Update, end_level.run_if(in_state(GameState::Playing)));
 
     app.run();
 }
@@ -117,6 +118,13 @@ fn setup_graphics(mut commands: Commands) {
         brightness: 2000.0,
     });
 }
+#[derive(Resource)]
+struct Level{
+    runtime:Timer
+}
+fn end_level(time:Res<Time>,mut level:ResMut<Level>){
+    level.runtime.tick(time.delta());
+}
 
 fn setup_character(
     //frames: Res<FrameCount>,
@@ -128,6 +136,9 @@ fn setup_character(
 ) {
     //if frames.0 == 10 {
     // Create an animation
+    commands.insert_resource(Level{runtime:Timer::from_seconds(15.0*60.0, TimerMode::Once)});
+
+
     let sheet = Spritesheet::new(13, 46);
     let idle_down_clip = library.new_clip(|clip| {
         clip.push_frame_indices(sheet.row_partial(10, 0..2));
@@ -264,7 +275,7 @@ fn setup_character(
             // Add a SpritesheetAnimation component that references our newly created animation
             SpritesheetAnimation::from_id(idle_down_animation),
             projectiles::PureProjectileSkill {
-                cooldown: Timer::from_seconds(5.0, TimerMode::Repeating),
+                cooldown: Timer::from_seconds(1.0, TimerMode::Repeating),
             },
         ))
         .insert(ActiveEvents::COLLISION_EVENTS)

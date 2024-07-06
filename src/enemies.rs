@@ -17,7 +17,10 @@ use bevy_spritesheet_animation::{
 };
 use rand::{thread_rng, Rng};
 
-use crate::{DamageBuffer, DamageSource, GameState, Health, Player, ENEMY_GROUP, PLAYER_GROUP, PROJECTILE_GROUP};
+use crate::{
+    DamageBuffer, DamageSource, GameState, Health, Level, Player, ENEMY_GROUP, PLAYER_GROUP,
+    PROJECTILE_GROUP,
+};
 pub struct EnemiesPlugin;
 impl Plugin for EnemiesPlugin {
     fn build(&self, app: &mut App) {
@@ -28,9 +31,9 @@ impl Plugin for EnemiesPlugin {
             slime_hurt_player.run_if(in_state(GameState::Playing)),
         );
         app.insert_resource(SlimeSpawn {
-            cooldown: Timer::from_seconds(2.0, TimerMode::Once),
+            cooldown: Timer::from_seconds(6.0, TimerMode::Once),
             cooldown_func: |time| {
-                let delay = (300.0 - time.as_secs_f32()).powf(0.3) * 0.1;
+                let delay = (time.as_secs_f32() / 150.0).cos() * 5.0;
                 Duration::from_secs_f32(delay)
             },
         });
@@ -51,13 +54,17 @@ fn spawn_slime(
     player: Query<&Transform, With<Player>>,
     time: Res<Time>,
     mut slime_spawn: ResMut<SlimeSpawn>,
+    level: Res<Level>,
 ) {
     // Space was pressed
     slime_spawn.cooldown.tick(time.delta());
     if !slime_spawn.cooldown.just_finished() {
         return;
     }
-    slime_spawn.cooldown = Timer::new((slime_spawn.cooldown_func)(time.elapsed()), TimerMode::Once);
+    slime_spawn.cooldown = Timer::new(
+        (slime_spawn.cooldown_func)(level.runtime.elapsed()),
+        TimerMode::Once,
+    );
     let texture =
         assets.load_with_settings(
             "enemies/Slime.png",
@@ -94,11 +101,15 @@ fn spawn_slime(
     let walk_right_animation = library.new_animation(|animation| {
         animation.add_stage(walk_right_clip.into());
     });
-    let mut origin = player.single().translation;
+    let player_translation = player.single().translation;
+    let mut origin = player_translation;
     let offset_x: f32 = thread_rng().gen_range(-256.0..256.0);
     let offset_y: f32 = thread_rng().gen_range(-256.0..256.0);
     origin.x += offset_x;
     origin.y += offset_y;
+    if player_translation.distance(origin) < 32.0 {
+        origin += (origin - player_translation).normalize() * 32.0
+    }
     let mut slime = Slime {
         damage: 1,
         ..default()
