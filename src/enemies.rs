@@ -152,7 +152,7 @@ fn move_slime(
     };
     for (slime_entity, slime_transform, mut slime_controller, slime) in slimes.iter_mut() {
         let direction = (player.translation - slime_transform.translation).normalize();
-        slime_controller.translation = Some((direction * 96.0 * time.delta_seconds()).truncate());
+        slime_controller.translation = Some((direction * 32.0 * time.delta_seconds()).truncate());
         let moving = direction.length() > 0.0;
         let animation = if moving {
             if direction.x > 0.0 {
