@@ -2,9 +2,7 @@
 
 use bevy::{
     //core::FrameCount,
-    prelude::*,
-    render::texture::{ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor},
-    utils::HashMap,
+    prelude::*, render::texture::{ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor}, utils::HashMap
 };
 use bevy_rapier2d::prelude::*;
 use bevy_spritesheet_animation::{
@@ -34,10 +32,51 @@ fn main() {
     });
     app.insert_state(GameState::StartScreen);
     app.add_systems(Startup, setup_graphics);
+    app.add_systems(Startup, setup_start_screen);
+    app.add_systems(OnExit(GameState::StartScreen), teardown_start_screen);
     app.add_systems(OnEnter(GameState::Playing), setup_character);
 
     app.run();
 }
+
+fn setup_start_screen(mut commands: Commands,asset_server:Res<AssetServer>,window: Query<&Window>) {
+    let window = window.single();
+
+    let mut width = window.resolution.width();
+    let mut height = window.resolution.height();
+    if width > height{
+        //Landscape
+        height = width / 16.0 * 9.0;
+    }else if width < height{
+        //Portrait
+        width = height / 9.0 * 16.0;
+    }
+    commands.spawn(NodeBundle {
+        style: Style {
+            display: Display::Grid,
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.),
+            justify_items:JustifyItems::Center,
+            align_items:AlignItems::Center,
+            ..default()
+        },
+        ..default()
+    }).insert(StartScreen).with_children(|commands|{
+
+        commands.spawn(ImageBundle{
+            style:Style{width:Val::Px(width),height:Val::Px(height),..default()},
+            image:UiImage::new(asset_server.load("start_screen.png")),
+            ..default()
+        });
+    });
+}
+fn teardown_start_screen(mut commands: Commands,screens:Query<Entity,With<StartScreen>>){
+    for screen in screens.iter(){
+        commands.entity(screen).despawn_recursive();
+    }
+}
+#[derive(Component)]
+struct StartScreen;
 #[derive(States, Debug, Default, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
 enum GameState {
     #[default]
