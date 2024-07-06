@@ -131,6 +131,7 @@ fn spawn_slime(
             invulnerability_timer: None,
             invulnerability_duration: Duration::ZERO,
         })
+        .insert(DamageBuffer::default())
         .insert(CollisionGroups::new(
             ENEMY_GROUP,
             PLAYER_GROUP | PROJECTILE_GROUP,
@@ -194,7 +195,7 @@ fn slime_hurt_player(
             CollisionEvent::Started(a, b, _flags) => {
                 if let Ok((slime, _)) = slime.get(*a) {
                     if let Ok(mut player) = player.get_mut(*b) {
-                        info!("Slime Started Colliding With Player");
+                        // info!("Slime Started Colliding With Player");
                         let damage_entity = commands.spawn(DamageSource).id();
                         commands.entity(*a).add_child(damage_entity);
                         player.0.push(crate::Damage {
@@ -204,7 +205,7 @@ fn slime_hurt_player(
                     }
                 } else if let Ok((slime, _)) = slime.get(*b) {
                     if let Ok(mut player) = player.get_mut(*a) {
-                        info!("Slime Started Colliding With Player");
+                        // info!("Slime Started Colliding With Player");
                         let damage_entity = commands.spawn(DamageSource).id();
                         commands.entity(*b).add_child(damage_entity);
                         player.0.push(crate::Damage {
@@ -217,9 +218,9 @@ fn slime_hurt_player(
             CollisionEvent::Stopped(a, b, _flags) => {
                 if let Ok((_, children)) = slime.get(*a) {
                     if player.get(*b).is_ok() {
-                        info!("Slime Stopped Colliding With Player");
+                        //info!("Slime Stopped Colliding With Player");
                         if let Some(children) = children {
-                            info!("Slime Had Children");
+                            // info!("Slime Had Children");
                             for &child in children.iter() {
                                 if let Ok(source) = damage_source.get(child) {
                                     commands.entity(source).despawn_recursive();
@@ -229,9 +230,9 @@ fn slime_hurt_player(
                     }
                 } else if let Ok((_, children)) = slime.get(*b) {
                     if player.get(*a).is_ok() {
-                        info!("Slime Stopped Colliding With Player");
+                        // info!("Slime Stopped Colliding With Player");
                         if let Some(children) = children {
-                            info!("Slime Had Children");
+                            // info!("Slime Had Children");
                             for &child in children.iter() {
                                 if let Ok(source) = damage_source.get(child) {
                                     commands.entity(source).despawn_recursive();

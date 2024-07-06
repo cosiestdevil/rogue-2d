@@ -1,10 +1,12 @@
+use std::time::Duration;
+
 use bevy::{
     prelude::*,
     render::texture::{ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor},
 };
 use bevy_rapier2d::{
     dynamics::{ExternalImpulse, RigidBody},
-    geometry::{ActiveEvents, Collider, CollisionGroups},
+    geometry::{ActiveEvents, Collider, CollisionGroups, Sensor},
     pipeline::CollisionEvent,
 };
 use bevy_spritesheet_animation::{
@@ -109,14 +111,14 @@ fn remove_projectile(
 fn projectile_collide(
     mut commands: Commands,
     mut collision_events: EventReader<CollisionEvent>,
-    projectile: Query<(&Projectile, Option<&Children>)>,
+    mut projectile: Query<(&mut Projectile, Option<&Children>)>,
     damage_source: Query<Entity, With<DamageSource>>,
     mut other: Query<&mut DamageBuffer, With<Health>>,
 ) {
     for collision_event in collision_events.read() {
         match collision_event {
             CollisionEvent::Started(a, b, _flags) => {
-                if let Ok((projectile, _)) = projectile.get(*a) {
+                if let Ok((mut projectile, _)) = projectile.get_mut(*a) {
                     if let Ok(mut other) = other.get_mut(*b) {
                         let damage_entity = commands.spawn(DamageSource).id();
                         commands.entity(*b).add_child(damage_entity);
@@ -124,8 +126,9 @@ fn projectile_collide(
                             source: damage_entity,
                             amount: projectile.damage,
                         });
+                        projectile.lifespan = Timer::new(Duration::from_millis(100), TimerMode::Once);
                     }
-                } else if let Ok((projectile, _)) = projectile.get(*b) {
+                } else if let Ok((mut projectile, _)) = projectile.get_mut(*b) {
                     if let Ok(mut player) = other.get_mut(*a) {
                         let damage_entity = commands.spawn(DamageSource).id();
                         commands.entity(*b).add_child(damage_entity);
@@ -133,6 +136,7 @@ fn projectile_collide(
                             source: damage_entity,
                             amount: projectile.damage,
                         });
+                        projectile.lifespan = Timer::new(Duration::from_millis(100), TimerMode::Once);
                     }
                 }
             }

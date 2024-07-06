@@ -40,6 +40,7 @@ fn main() {
     app.add_systems(OnExit(GameState::StartScreen), teardown_start_screen);
     app.add_systems(OnEnter(GameState::Playing), setup_character);
     app.add_systems(Update, apply_damage.run_if(in_state(GameState::Playing)));
+    app.add_systems(Update, despawn_dead.run_if(in_state(GameState::Playing)));
 
     app.run();
 }
@@ -330,6 +331,15 @@ fn apply_damage(
         }
     }
 }
+
+fn despawn_dead(mut commands: Commands,healths:Query<(Entity,&Health)>){
+    for (entity,health) in  healths.iter(){
+        if health.current == 0 {
+            commands.entity(entity).despawn_recursive();
+        }
+    }
+}
+
 
 #[derive(Component, Default)]
 struct Player {
