@@ -45,7 +45,7 @@ struct SlimeSpawn {
     cooldown: Timer,
     cooldown_func: fn(Duration) -> Duration,
 }
-
+#[allow(clippy::too_many_arguments)]
 fn spawn_slime(
     mut commands: Commands,
     mut library: ResMut<SpritesheetLibrary>,

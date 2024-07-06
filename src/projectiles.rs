@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use bevy::{
     prelude::*,
     render::texture::{ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor},
@@ -122,14 +120,14 @@ fn remove_projectile(
 fn projectile_collide(
     mut commands: Commands,
     mut collision_events: EventReader<CollisionEvent>,
-    mut projectile: Query<(&mut Projectile, Option<&Children>)>,
+    projectile: Query<(&Projectile, Option<&Children>)>,
     damage_source: Query<Entity, With<DamageSource>>,
     mut other: Query<(&mut DamageBuffer, &mut Health)>,
 ) {
     for collision_event in collision_events.read() {
         match collision_event {
             CollisionEvent::Started(a, b, _flags) => {
-                if let Ok((mut projectile, _)) = projectile.get_mut(*a) {
+                if let Ok((projectile, _)) = projectile.get(*a) {
                     if let Ok((mut other, mut health)) = other.get_mut(*b) {
                         if projectile.single {
                             health.current = health.current.saturating_sub(projectile.damage);
@@ -143,7 +141,7 @@ fn projectile_collide(
                             });
                         }
                     }
-                } else if let Ok((mut projectile, _)) = projectile.get_mut(*b) {
+                } else if let Ok((projectile, _)) = projectile.get(*b) {
                     if let Ok((mut other, mut health)) = other.get_mut(*a) {
                         if projectile.single {
                             health.current = health.current.saturating_sub(projectile.damage);
