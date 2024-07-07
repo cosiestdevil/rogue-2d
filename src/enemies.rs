@@ -32,9 +32,9 @@ impl Plugin for EnemiesPlugin {
         app.add_systems(Update, slime_hurt.run_if(in_state(GameState::Playing)).after(move_slime));
         app.add_systems(Update,hurt_timer.run_if(in_state(GameState::Playing)).after(move_slime));
         app.insert_resource(SlimeSpawn {
-            cooldown: Timer::from_seconds(6.0, TimerMode::Once),
+            cooldown: Timer::from_seconds(3.0, TimerMode::Once),
             cooldown_func: |time| {
-                let delay = (time.as_secs_f32() / 150.0).cos() * 5.0;
+                let delay = (time.as_secs_f32() / 150.0).cos() * 2.5;
                 Duration::from_secs_f32(delay)
             },
         });
