@@ -11,12 +11,13 @@ use bevy_rapier2d::{
     pipeline::CollisionEvent,
 };
 use bevy_spritesheet_animation::{
-    animation::AnimationDuration, component::SpritesheetAnimation, library::SpritesheetLibrary, spritesheet::Spritesheet
+    animation::AnimationDuration, component::SpritesheetAnimation, library::SpritesheetLibrary,
+    spritesheet::Spritesheet,
 };
 use rand::{thread_rng, Rng};
 
 use crate::{
-    DamageBuffer, DamageSource, Dead, GameState, Health, Hurt, Level, Player, ENEMY_GROUP, PLAYER_GROUP, PROJECTILE_GROUP
+    pickups::{ExperiencePickup, EXP_ANIMATION}, DamageBuffer, DamageSource, Dead, GameState, Health, Hurt, Level, Player, ENEMY_GROUP, PLAYER_GROUP, PROJECTILE_GROUP
 };
 pub struct EnemiesPlugin;
 impl Plugin for EnemiesPlugin {
@@ -28,9 +29,25 @@ impl Plugin for EnemiesPlugin {
             Update,
             slime_hurt_player.run_if(in_state(GameState::Playing)),
         );
-        app.add_systems(Update, slime_death.run_if(in_state(GameState::Playing)).after(slime_hurt));
-        app.add_systems(Update, slime_hurt.run_if(in_state(GameState::Playing)).after(move_slime));
-        app.add_systems(Update,hurt_timer.run_if(in_state(GameState::Playing)).after(move_slime));
+        app.add_systems(
+            Update,
+            slime_death
+                .run_if(in_state(GameState::Playing))
+                .after(slime_hurt),
+        );
+        app.add_systems(
+            Update,
+            slime_hurt
+                .run_if(in_state(GameState::Playing))
+                .after(move_slime),
+        );
+        app.add_systems(
+            Update,
+            hurt_timer
+                .run_if(in_state(GameState::Playing))
+                .after(move_slime),
+        );
+        app.add_systems(Update, slime_drop.run_if(in_state(GameState::Playing)));
         app.insert_resource(SlimeSpawn {
             cooldown: Timer::from_seconds(3.0, TimerMode::Once),
             cooldown_func: |time| {
@@ -41,9 +58,7 @@ impl Plugin for EnemiesPlugin {
     }
 }
 
-fn setup_slime_animations(
-    mut library: ResMut<SpritesheetLibrary>,
-) {
+fn setup_slime_animations(mut library: ResMut<SpritesheetLibrary>) {
     let sheet = Spritesheet::new(6, 6);
     let clip = library.new_clip(|clip| {
         clip.push_frame_indices(sheet.row_partial(0, 0..6));
@@ -65,29 +80,35 @@ fn setup_slime_animations(
     });
     let hurt_clip = library.new_clip(|clip| {
         clip.push_frame_indices(sheet.row_partial(4, 0..4));
-        clip.set_default_duration(
-            AnimationDuration::PerCycle(500),
-        );
+        clip.set_default_duration(AnimationDuration::PerCycle(500));
     });
     let death_clip = library.new_clip(|clip| {
         clip.push_frame_indices(sheet.row_partial(5, 0..4));
-        clip.set_default_duration(
-            AnimationDuration::PerCycle(1000),
-        );
+        clip.set_default_duration(AnimationDuration::PerCycle(1000));
     });
     let death_animation = library.new_animation(|animation| {
         animation.add_stage(hurt_clip.into());
         animation.add_stage(death_clip.into());
     });
-    
+
     let hurt_animation = library.new_animation(|animation| {
         animation.add_stage(hurt_clip.into());
     });
-    library.name_animation(animation, SLIME_IDLE_ANIMATION).unwrap();
-    library.name_animation(walk_left_animation, SLIME_WALK_LEFT_ANIMATION).unwrap();
-    library.name_animation(walk_right_animation, SLIME_WALK_RIGHT_ANIMATION).unwrap();
-    library.name_animation(death_animation, SLIME_DEATH_ANIMATION).unwrap();
-    library.name_animation(hurt_animation, SLIME_HURT_ANIMATION).unwrap();
+    library
+        .name_animation(animation, SLIME_IDLE_ANIMATION)
+        .unwrap();
+    library
+        .name_animation(walk_left_animation, SLIME_WALK_LEFT_ANIMATION)
+        .unwrap();
+    library
+        .name_animation(walk_right_animation, SLIME_WALK_RIGHT_ANIMATION)
+        .unwrap();
+    library
+        .name_animation(death_animation, SLIME_DEATH_ANIMATION)
+        .unwrap();
+    library
+        .name_animation(hurt_animation, SLIME_HURT_ANIMATION)
+        .unwrap();
 }
 const SLIME_IDLE_ANIMATION: &str = "slime idle";
 const SLIME_WALK_LEFT_ANIMATION: &str = "slime walk left";
@@ -129,9 +150,7 @@ fn spawn_slime(
     if player_translation.distance(origin) < 32.0 {
         origin += (origin - player_translation).normalize() * 32.0
     }
-    let slime = Slime {
-        damage: 1,
-    };
+    let slime = Slime { damage: 1 };
     let texture =
         assets.load_with_settings(
             "enemies/Slime.png",
@@ -149,6 +168,7 @@ fn spawn_slime(
         None,
         None,
     ));
+    origin.z = 5.0;
     commands
         .spawn(slime)
         .insert(SpriteSheetBundle {
@@ -183,12 +203,8 @@ fn spawn_slime(
 fn move_slime(
     mut commands: Commands,
     mut slimes: Query<
-        (
-            Entity,
-            &Transform,
-            &mut KinematicCharacterController,
-        ),
-        (With<Slime>, Without<Player>,Without<Dead>,Without<Hurt>),
+        (Entity, &Transform, &mut KinematicCharacterController),
+        (With<Slime>, Without<Player>, Without<Dead>, Without<Hurt>),
     >,
     player: Query<&Transform, With<Player>>,
     time: Res<Time>,
@@ -236,14 +252,17 @@ fn slime_death(
         }
     }
 }
-fn slime_hurt(mut commands: Commands,mut slimes: Query<Entity, (With<Slime>, Without<Dead>,Added<Hurt>)>,
-library: Res<SpritesheetLibrary>){
-    for slime in slimes.iter(){
+fn slime_hurt(
+    mut commands: Commands,
+    mut slimes: Query<Entity, (With<Slime>, Without<Dead>, Added<Hurt>)>,
+    library: Res<SpritesheetLibrary>,
+) {
+    for slime in slimes.iter() {
         // hurt.timer.tick(time.delta());
         // if hurt_ref.is_added(){
-            commands.entity(slime).insert(SpritesheetAnimation::from_id(
-                library.animation_with_name(SLIME_HURT_ANIMATION).unwrap(),
-            ));
+        commands.entity(slime).insert(SpritesheetAnimation::from_id(
+            library.animation_with_name(SLIME_HURT_ANIMATION).unwrap(),
+        ));
         // }
         // if hurt.timer.just_finished(){
         //     commands.entity(slime).remove::<Hurt>();
@@ -251,14 +270,34 @@ library: Res<SpritesheetLibrary>){
     }
 }
 
-fn hurt_timer(mut commands: Commands, mut hurt:Query<(Entity,&mut Hurt),Without<Dead>>,time:Res<Time>){
-    for (entity,mut hurt) in hurt.iter_mut(){
+fn hurt_timer(
+    mut commands: Commands,
+    mut hurt: Query<(Entity, &mut Hurt), Without<Dead>>,
+    time: Res<Time>,
+) {
+    for (entity, mut hurt) in hurt.iter_mut() {
         hurt.timer.tick(time.delta());
-        if hurt.timer.just_finished(){
+        if hurt.timer.just_finished() {
             commands.entity(entity).remove::<Hurt>();
         }
     }
 }
+
+fn slime_drop(
+    mut commands: Commands,
+    dead_slimes: Query<&Transform, (With<Slime>, Added<Dead>)>,
+    library: Res<SpritesheetLibrary>,
+    mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    assets: Res<AssetServer>,
+) {
+    
+    for transform in dead_slimes.iter() {
+        let mut origin = *transform;
+        origin.translation.z = 1.0;
+        commands.append(&mut crate::pickups::spawn_experience_pickup(&library,&mut atlas_layouts,&assets,origin))
+    }
+}
+
 
 #[derive(Component, Default)]
 struct Slime {

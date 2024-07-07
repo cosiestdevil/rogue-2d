@@ -18,6 +18,7 @@ mod enemies;
 mod generation;
 mod input;
 mod projectiles;
+mod pickups;
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins);
@@ -26,10 +27,11 @@ fn main() {
     app.add_plugins(generation::GenerationPlugin);
     app.add_plugins(projectiles::ProjectilesPlugin);
     app.add_plugins(enemies::EnemiesPlugin);
+    app.add_plugins(pickups::PickupsPlugin);
     app.add_plugins(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(
         generation::SCALE,
     ));
-    //app.add_plugins(RapierDebugRenderPlugin::default());
+    app.add_plugins(RapierDebugRenderPlugin::default());
     app.insert_resource(RapierConfiguration {
         gravity: Vec2::ZERO,
         ..RapierConfiguration::new(1.0)
@@ -259,7 +261,7 @@ fn setup_character(
                     layout,
                     ..default()
                 },
-                transform: Transform::from_xyz(0., 0., 1.),
+                transform: Transform::from_xyz(0., 0., 2.),
                 ..default()
             },
             Collider::cuboid(16.0, 32.0),
@@ -270,7 +272,7 @@ fn setup_character(
                 invulnerability_timer: None,
                 invulnerability_duration: Duration::from_secs(2),
             },
-            CollisionGroups::new(PLAYER_GROUP, ENEMY_GROUP),
+            CollisionGroups::new(PLAYER_GROUP, ENEMY_GROUP|crate::PICKUP_GROUP),
             DamageBuffer::default(),
             // Add a SpritesheetAnimation component that references our newly created animation
             SpritesheetAnimation::from_id(idle_down_animation),
@@ -287,6 +289,16 @@ fn setup_character(
             CollisionGroups::new(PLAYER_GROUP, ENEMY_GROUP),
         ))
         .set_parent(player_id);
+    commands
+    .spawn((
+        TransformBundle::from_transform(Transform::from_translation(Vec3::ZERO)),
+        Collider::ball(48.0),
+        Sensor,
+        pickups::PlayerPickup,
+        ActiveEvents::COLLISION_EVENTS,
+        CollisionGroups::new(PLAYER_PICKUP_GROUP, PICKUP_GROUP),
+    ))
+    .set_parent(player_id);
     if let Ok(camera_entity) = camera.get_single_mut() {
         let mut camera = commands.entity(camera_entity);
         camera.set_parent(player_id);
@@ -296,6 +308,8 @@ fn setup_character(
 const PLAYER_GROUP: Group = Group::GROUP_1;
 const PROJECTILE_GROUP: Group = Group::GROUP_2;
 const ENEMY_GROUP: Group = Group::GROUP_3;
+const PICKUP_GROUP: Group = Group::GROUP_4;
+const PLAYER_PICKUP_GROUP: Group = Group::GROUP_5;
 
 #[derive(Component)]
 struct Health {
@@ -352,6 +366,7 @@ struct Dead{
 struct Hurt{
     timer:Timer
 }
+
 
 
 fn despawn_dead(mut commands: Commands,mut dead:Query<(Entity,&mut Dead)>,time:Res<Time>){
