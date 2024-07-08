@@ -13,12 +13,13 @@ use bevy_spritesheet_animation::{
     animation::AnimationId, component::SpritesheetAnimation, library::SpritesheetLibrary,
     plugin::SpritesheetAnimationPlugin, spritesheet::Spritesheet,
 };
+use projectiles::PureProjectileSkill;
 
 mod enemies;
 mod generation;
 mod input;
-mod projectiles;
 mod pickups;
+mod projectiles;
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins);
@@ -31,7 +32,7 @@ fn main() {
     app.add_plugins(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(
         generation::SCALE,
     ));
-    app.add_plugins(RapierDebugRenderPlugin::default());
+    //app.add_plugins(RapierDebugRenderPlugin::default());
     app.insert_resource(RapierConfiguration {
         gravity: Vec2::ZERO,
         ..RapierConfiguration::new(1.0)
@@ -44,7 +45,9 @@ fn main() {
     app.add_systems(Update, apply_damage.run_if(in_state(GameState::Playing)));
     app.add_systems(Update, despawn_dead.run_if(in_state(GameState::Playing)));
     app.add_systems(Update, end_level.run_if(in_state(GameState::Playing)));
-
+    app.add_systems(Update, update_health_bars.run_if(in_state(GameState::Playing)));
+    app.add_systems(Update, update_exp_bars.run_if(in_state(GameState::Playing)));
+    app.add_systems(Update, level_up.run_if(in_state(GameState::Playing)));
     app.run();
 }
 
@@ -121,10 +124,10 @@ fn setup_graphics(mut commands: Commands) {
     });
 }
 #[derive(Resource)]
-struct Level{
-    runtime:Timer
+struct Level {
+    runtime: Timer,
 }
-fn end_level(time:Res<Time>,mut level:ResMut<Level>){
+fn end_level(time: Res<Time>, mut level: ResMut<Level>) {
     level.runtime.tick(time.delta());
 }
 
@@ -138,8 +141,9 @@ fn setup_character(
 ) {
     //if frames.0 == 10 {
     // Create an animation
-    commands.insert_resource(Level{runtime:Timer::from_seconds(15.0*60.0, TimerMode::Once)});
-
+    commands.insert_resource(Level {
+        runtime: Timer::from_seconds(15.0 * 60.0, TimerMode::Once),
+    });
 
     let sheet = Spritesheet::new(13, 46);
     let idle_down_clip = library.new_clip(|clip| {
@@ -252,6 +256,7 @@ fn setup_character(
     player
         .animations
         .insert(PlayerAnimation::WalkLeft, walk_left_animation);
+    player.next_level = 500;
     let player_id = commands
         .spawn((
             player,
@@ -272,7 +277,7 @@ fn setup_character(
                 invulnerability_timer: None,
                 invulnerability_duration: Duration::from_secs(2),
             },
-            CollisionGroups::new(PLAYER_GROUP, ENEMY_GROUP|crate::PICKUP_GROUP),
+            CollisionGroups::new(PLAYER_GROUP, ENEMY_GROUP | crate::PICKUP_GROUP),
             DamageBuffer::default(),
             // Add a SpritesheetAnimation component that references our newly created animation
             SpritesheetAnimation::from_id(idle_down_animation),
@@ -290,15 +295,92 @@ fn setup_character(
         ))
         .set_parent(player_id);
     commands
-    .spawn((
-        TransformBundle::from_transform(Transform::from_translation(Vec3::ZERO)),
-        Collider::ball(48.0),
-        Sensor,
-        pickups::PlayerPickup,
-        ActiveEvents::COLLISION_EVENTS,
-        CollisionGroups::new(PLAYER_PICKUP_GROUP, PICKUP_GROUP),
-    ))
-    .set_parent(player_id);
+        .spawn((
+            TransformBundle::from_transform(Transform::from_translation(Vec3::ZERO)),
+            Collider::ball(48.0),
+            Sensor,
+            pickups::PlayerPickup,
+            ActiveEvents::COLLISION_EVENTS,
+            CollisionGroups::new(PLAYER_PICKUP_GROUP, PICKUP_GROUP),
+        ))
+        .set_parent(player_id);
+
+    let health_background = commands
+        .spawn(SpriteBundle {
+            sprite: Sprite {
+                custom_size: Some(Vec2::new(32.0, 8.0)),
+                ..default()
+            },
+            texture: assets.load("bars/background.png"),
+            transform: Transform::from_xyz(0., -32.0, 3.),
+            ..default()
+        })
+        .set_parent(player_id)
+        .id();
+    let health_foreground = commands
+        .spawn(SpriteBundle {
+            sprite: Sprite {
+                custom_size: Some(Vec2::new(32.0, 8.0)),
+                ..default()
+            },
+            texture: assets.load("bars/health_foreground.png"),
+            transform: Transform::from_xyz(0., -32.0, 3.2),
+            ..default()
+        })
+        .set_parent(player_id)
+        .id();
+    let health_bar = commands
+        .spawn(SpriteBundle {
+            sprite: Sprite {
+                custom_size: Some(Vec2::new(32.0, 8.0)),
+                color:Color::Rgba { red: 0.8, green: 0.0, blue: 0.0, alpha: 1.0 },
+                ..default()
+            },
+            texture: assets.load("bars/bar.png"),
+            transform: Transform::from_xyz(0., -32.0, 3.1),
+            ..default()
+        })
+        .insert(HealthBar(32.0))
+        .set_parent(player_id)
+        .id();
+    let exp_background = commands
+    .spawn(SpriteBundle {
+        sprite: Sprite {
+            custom_size: Some(Vec2::new(32.0, 8.0)),
+            ..default()
+        },
+        texture: assets.load("bars/background.png"),
+        transform: Transform::from_xyz(0., -38.0, 3.),
+        ..default()
+    })
+    .set_parent(player_id)
+    .id();
+let exp_foreground = commands
+    .spawn(SpriteBundle {
+        sprite: Sprite {
+            custom_size: Some(Vec2::new(32.0, 8.0)),
+            ..default()
+        },
+        texture: assets.load("bars/exp_foreground.png"),
+        transform: Transform::from_xyz(0., -38.0, 3.2),
+        ..default()
+    })
+    .set_parent(player_id)
+    .id();
+let exp_bar = commands
+    .spawn(SpriteBundle {
+        sprite: Sprite {
+            custom_size: Some(Vec2::new(0.0, 8.0)),
+            color:Color::Rgba { red: 0., green: 0.1, blue: 0.67, alpha: 1.0 },
+            ..default()
+        },
+        texture: assets.load("enemy_health_bars_2.0/enemy_mana_bar_001.png"),
+        transform: Transform::from_xyz(0., -38.0, 3.1),
+        ..default()
+    })
+    .insert(ExpBar(32.0))
+    .set_parent(player_id)
+    .id();
     if let Ok(camera_entity) = camera.get_single_mut() {
         let mut camera = commands.entity(camera_entity);
         camera.set_parent(player_id);
@@ -310,6 +392,36 @@ const PROJECTILE_GROUP: Group = Group::GROUP_2;
 const ENEMY_GROUP: Group = Group::GROUP_3;
 const PICKUP_GROUP: Group = Group::GROUP_4;
 const PLAYER_PICKUP_GROUP: Group = Group::GROUP_5;
+
+#[derive(Component)]
+struct HealthBar(f32);
+
+fn update_health_bars(mut bars: Query<(&HealthBar, &mut Sprite, &Parent)>, health: Query<&Health>) {
+    for (bar, mut sprite, parent) in bars.iter_mut() {
+        let Ok(health) = health.get(parent.get()) else {
+            return;
+        };
+        sprite.custom_size = Some(Vec2::new(
+            bar.0 * (health.current as f32 / health.max as f32),
+            sprite.custom_size.unwrap().y,
+        ))
+    }
+}
+
+#[derive(Component)]
+struct ExpBar(f32);
+
+fn update_exp_bars(mut bars: Query<(&ExpBar, &mut Sprite, &Parent)>, health: Query<&Player>) {
+    for (bar, mut sprite, parent) in bars.iter_mut() {
+        let Ok(health) = health.get(parent.get()) else {
+            return;
+        };
+        sprite.custom_size = Some(Vec2::new(
+            bar.0 * (health.experience as f32 / health.next_level as f32),
+            sprite.custom_size.unwrap().y,
+        ))
+    }
+}
 
 #[derive(Component)]
 struct Health {
@@ -358,19 +470,17 @@ fn apply_damage(
 }
 
 #[derive(Component)]
-struct Dead{
-    timer:Timer
+struct Dead {
+    timer: Timer,
 }
 
 #[derive(Component)]
-struct Hurt{
-    timer:Timer
+struct Hurt {
+    timer: Timer,
 }
 
-
-
-fn despawn_dead(mut commands: Commands,mut dead:Query<(Entity,&mut Dead)>,time:Res<Time>){
-    for (entity,mut dead) in  dead.iter_mut(){
+fn despawn_dead(mut commands: Commands, mut dead: Query<(Entity, &mut Dead)>, time: Res<Time>) {
+    for (entity, mut dead) in dead.iter_mut() {
         dead.timer.tick(time.delta());
         if dead.timer.finished() {
             commands.entity(entity).despawn_recursive();
@@ -378,11 +488,23 @@ fn despawn_dead(mut commands: Commands,mut dead:Query<(Entity,&mut Dead)>,time:R
     }
 }
 
+fn level_up(mut player:Query<(&mut Player,&mut PureProjectileSkill)>){
+    if let Ok((mut player,mut skill)) = player.get_single_mut() {
+        if player.experience>= player.next_level{
+            player.experience = player.experience.saturating_sub(player.next_level);
+            skill.cooldown = Timer::from_seconds(skill.cooldown.duration().as_secs_f32()*0.8, TimerMode::Repeating);
+            
+        }
+    }
+}
+
 
 #[derive(Component, Default)]
-struct Player {
+pub struct Player {
     facing: f32,
     animations: HashMap<PlayerAnimation, AnimationId>,
+    pub experience: u64,
+    pub next_level: u64,
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Hash)]

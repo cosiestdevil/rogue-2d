@@ -132,7 +132,7 @@ fn projectile_collide(
                     if let Ok((mut other, mut health)) = other.get_mut(*b) {
                         if projectile.single {
                             health.current = health.current.saturating_sub(projectile.damage);
-                            commands.entity(*b).insert(Hurt{timer:Timer::from_seconds(0.5, TimerMode::Once)});
+                            commands.entity(*b).try_insert(Hurt{timer:Timer::from_seconds(0.5, TimerMode::Once)});
                             commands.entity(*a).despawn_recursive();
                         } else {
                             let damage_entity = commands.spawn(DamageSource).id();
@@ -147,7 +147,7 @@ fn projectile_collide(
                     if let Ok((mut other, mut health)) = other.get_mut(*a) {
                         if projectile.single {
                             health.current = health.current.saturating_sub(projectile.damage);
-                            commands.entity(*a).insert(Hurt{timer:Timer::from_seconds(0.5, TimerMode::Once)});
+                            commands.entity(*a).try_insert(Hurt{timer:Timer::from_seconds(0.5, TimerMode::Once)});
                             commands.entity(*b).despawn_recursive();
                         } else {
                             let damage_entity = commands.spawn(DamageSource).id();

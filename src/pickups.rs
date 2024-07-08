@@ -47,13 +47,9 @@ fn setup_pickup_animations(mut library: ResMut<SpritesheetLibrary>) {
 pub const EXP_ANIMATION: &str = "experience orb";
 
 #[derive(Component)]
-pub struct Pickup;
-
-#[derive(Component)]
-pub struct ExperiencePickup {
-    pub amount: u64,
+pub struct Pickup {
+    action: fn(&mut Player),
 }
-
 pub fn spawn_experience_pickup(
     library: &Res<SpritesheetLibrary>,
     atlas_layouts: &mut ResMut<Assets<TextureAtlasLayout>>,
@@ -92,15 +88,18 @@ pub fn spawn_experience_pickup(
                 transform: origin,
                 ..default()
             })
-            .insert(Pickup)
-            .insert(ExperiencePickup { amount: 100 })
+            .insert(Pickup {
+                action: |player| {
+                    player.experience += 100;
+                },
+            })
             .insert(SpritesheetAnimation::from_id(animation_id))
             .insert(Collider::ball(8.0))
             .insert(RigidBody::Dynamic)
             .insert(ActiveEvents::COLLISION_EVENTS)
             .insert(CollisionGroups::new(
                 PICKUP_GROUP,
-                crate::PLAYER_PICKUP_GROUP|crate::PLAYER_GROUP
+                crate::PLAYER_PICKUP_GROUP | crate::PLAYER_GROUP,
             ))
             .insert(KinematicCharacterController::default())
             .insert(Sensor);
@@ -143,7 +142,7 @@ fn attract_pickup(
         return;
     };
     for (pickup_transform, mut pickup_controller) in pickups.iter_mut() {
-        info!("Moving pickup!");
+        // info!("Moving pickup!");
         let direction = (player.translation - pickup_transform.translation).normalize();
         pickup_controller.translation = Some((direction * 64.0 * time.delta_seconds()).truncate());
     }
@@ -151,19 +150,23 @@ fn attract_pickup(
 fn pickup_pickup(
     mut commands: Commands,
     mut collision_events: EventReader<CollisionEvent>,
-    player: Query<(), With<Player>>,
-    pickups: Query<(), (With<Pickup>, Without<Player>)>,
+    mut player: Query<&mut Player>,
+    pickups: Query<&Pickup, Without<Player>>,
 ) {
     for collision_event in collision_events.read() {
         match collision_event {
             CollisionEvent::Started(a, b, _flags) => {
-                if player.get(*a).is_ok() && pickups.get(*b).is_ok() {
-                    let mut pickup = commands.entity(*b);
-                    pickup.despawn_recursive();
+                if let Ok(mut player) = player.get_mut(*a) {
+                    if let Ok(pickup) = pickups.get(*b) {
+                        (pickup.action)(&mut player);
+                        commands.entity(*b).despawn_recursive();
+                    }
                 }
-                if player.get(*b).is_ok() && pickups.get(*a).is_ok() {
-                    let mut pickup = commands.entity(*a);
-                    pickup.despawn_recursive();
+                if let Ok(mut player) = player.get_mut(*b) {
+                    if let Ok(pickup) = pickups.get(*a) {
+                        (pickup.action)(&mut player);
+                        commands.entity(*a).despawn_recursive();
+                    }
                 }
             }
             CollisionEvent::Stopped(a, b, _flags) => {}

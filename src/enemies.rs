@@ -17,7 +17,7 @@ use bevy_spritesheet_animation::{
 use rand::{thread_rng, Rng};
 
 use crate::{
-    pickups::{ExperiencePickup, EXP_ANIMATION}, DamageBuffer, DamageSource, Dead, GameState, Health, Hurt, Level, Player, ENEMY_GROUP, PLAYER_GROUP, PROJECTILE_GROUP
+    pickups::spawn_experience_pickup, DamageBuffer, DamageSource, Dead, GameState, Health, Hurt, Level, Player, ENEMY_GROUP, PLAYER_GROUP, PROJECTILE_GROUP
 };
 pub struct EnemiesPlugin;
 impl Plugin for EnemiesPlugin {
@@ -243,10 +243,10 @@ fn slime_death(
     for (slime, health) in slimes.iter() {
         if health.current == 0 {
             let mut slime = commands.entity(slime);
-            slime.insert(SpritesheetAnimation::from_id(
+            slime.try_insert(SpritesheetAnimation::from_id(
                 library.animation_with_name(SLIME_DEATH_ANIMATION).unwrap(),
             ));
-            slime.insert(Dead {
+            slime.try_insert(Dead {
                 timer: Timer::from_seconds(1.0, TimerMode::Once),
             });
         }
@@ -290,14 +290,17 @@ fn slime_drop(
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     assets: Res<AssetServer>,
 ) {
-    
     for transform in dead_slimes.iter() {
         let mut origin = *transform;
         origin.translation.z = 1.0;
-        commands.append(&mut crate::pickups::spawn_experience_pickup(&library,&mut atlas_layouts,&assets,origin))
+        commands.append(&mut spawn_experience_pickup(
+            &library,
+            &mut atlas_layouts,
+            &assets,
+            origin,
+        ))
     }
 }
-
 
 #[derive(Component, Default)]
 struct Slime {
