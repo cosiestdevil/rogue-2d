@@ -45,7 +45,10 @@ fn main() {
     app.add_systems(Update, apply_damage.run_if(in_state(GameState::Playing)));
     app.add_systems(Update, despawn_dead.run_if(in_state(GameState::Playing)));
     app.add_systems(Update, end_level.run_if(in_state(GameState::Playing)));
-    app.add_systems(Update, update_health_bars.run_if(in_state(GameState::Playing)));
+    app.add_systems(
+        Update,
+        update_health_bars.run_if(in_state(GameState::Playing)),
+    );
     app.add_systems(Update, update_exp_bars.run_if(in_state(GameState::Playing)));
     app.add_systems(Update, level_up.run_if(in_state(GameState::Playing)));
     app.run();
@@ -104,6 +107,7 @@ enum GameState {
     #[default]
     StartScreen,
     Playing,
+    #[allow(dead_code)]
     DeathScreen,
 }
 
@@ -225,7 +229,7 @@ fn setup_character(
         });
 
     let layout = atlas_layouts.add(TextureAtlasLayout::from_grid(
-        Vec2::new(64.0, 64.0),
+        UVec2::new(64, 64),
         13,
         46,
         None,
@@ -260,13 +264,13 @@ fn setup_character(
     let player_id = commands
         .spawn((
             player,
-            SpriteSheetBundle {
+            SpriteBundle {
                 texture,
-                atlas: TextureAtlas {
-                    layout,
-                    ..default()
-                },
                 transform: Transform::from_xyz(0., 0., 2.),
+                ..default()
+            },
+            TextureAtlas {
+                layout,
                 ..default()
             },
             Collider::cuboid(16.0, 32.0),
@@ -305,7 +309,7 @@ fn setup_character(
         ))
         .set_parent(player_id);
 
-    let health_background = commands
+    let _health_background = commands
         .spawn(SpriteBundle {
             sprite: Sprite {
                 custom_size: Some(Vec2::new(32.0, 8.0)),
@@ -317,7 +321,7 @@ fn setup_character(
         })
         .set_parent(player_id)
         .id();
-    let health_foreground = commands
+    let _health_foreground = commands
         .spawn(SpriteBundle {
             sprite: Sprite {
                 custom_size: Some(Vec2::new(32.0, 8.0)),
@@ -329,11 +333,11 @@ fn setup_character(
         })
         .set_parent(player_id)
         .id();
-    let health_bar = commands
+    let _health_bar = commands
         .spawn(SpriteBundle {
             sprite: Sprite {
                 custom_size: Some(Vec2::new(32.0, 8.0)),
-                color:Color::Rgba { red: 0.8, green: 0.0, blue: 0.0, alpha: 1.0 },
+                color: Color::linear_rgba(0.8, 0.0, 0.0, 1.0),
                 ..default()
             },
             texture: assets.load("bars/bar.png"),
@@ -343,44 +347,44 @@ fn setup_character(
         .insert(HealthBar(32.0))
         .set_parent(player_id)
         .id();
-    let exp_background = commands
-    .spawn(SpriteBundle {
-        sprite: Sprite {
-            custom_size: Some(Vec2::new(32.0, 8.0)),
+    let _exp_background = commands
+        .spawn(SpriteBundle {
+            sprite: Sprite {
+                custom_size: Some(Vec2::new(32.0, 8.0)),
+                ..default()
+            },
+            texture: assets.load("bars/background.png"),
+            transform: Transform::from_xyz(0., -38.0, 3.),
             ..default()
-        },
-        texture: assets.load("bars/background.png"),
-        transform: Transform::from_xyz(0., -38.0, 3.),
-        ..default()
-    })
-    .set_parent(player_id)
-    .id();
-let exp_foreground = commands
-    .spawn(SpriteBundle {
-        sprite: Sprite {
-            custom_size: Some(Vec2::new(32.0, 8.0)),
+        })
+        .set_parent(player_id)
+        .id();
+    let _exp_foreground = commands
+        .spawn(SpriteBundle {
+            sprite: Sprite {
+                custom_size: Some(Vec2::new(32.0, 8.0)),
+                ..default()
+            },
+            texture: assets.load("bars/exp_foreground.png"),
+            transform: Transform::from_xyz(0., -38.0, 3.2),
             ..default()
-        },
-        texture: assets.load("bars/exp_foreground.png"),
-        transform: Transform::from_xyz(0., -38.0, 3.2),
-        ..default()
-    })
-    .set_parent(player_id)
-    .id();
-let exp_bar = commands
-    .spawn(SpriteBundle {
-        sprite: Sprite {
-            custom_size: Some(Vec2::new(0.0, 8.0)),
-            color:Color::Rgba { red: 0., green: 0.1, blue: 0.67, alpha: 1.0 },
+        })
+        .set_parent(player_id)
+        .id();
+    let _exp_bar = commands
+        .spawn(SpriteBundle {
+            sprite: Sprite {
+                custom_size: Some(Vec2::new(0.0, 8.0)),
+                color: Color::linear_rgba(0., 0.1, 0.67, 1.0),
+                ..default()
+            },
+            texture: assets.load("enemy_health_bars_2.0/enemy_mana_bar_001.png"),
+            transform: Transform::from_xyz(0., -38.0, 3.1),
             ..default()
-        },
-        texture: assets.load("enemy_health_bars_2.0/enemy_mana_bar_001.png"),
-        transform: Transform::from_xyz(0., -38.0, 3.1),
-        ..default()
-    })
-    .insert(ExpBar(32.0))
-    .set_parent(player_id)
-    .id();
+        })
+        .insert(ExpBar(32.0))
+        .set_parent(player_id)
+        .id();
     if let Ok(camera_entity) = camera.get_single_mut() {
         let mut camera = commands.entity(camera_entity);
         camera.set_parent(player_id);
@@ -488,16 +492,17 @@ fn despawn_dead(mut commands: Commands, mut dead: Query<(Entity, &mut Dead)>, ti
     }
 }
 
-fn level_up(mut player:Query<(&mut Player,&mut PureProjectileSkill)>){
-    if let Ok((mut player,mut skill)) = player.get_single_mut() {
-        if player.experience>= player.next_level{
+fn level_up(mut player: Query<(&mut Player, &mut PureProjectileSkill)>) {
+    if let Ok((mut player, mut skill)) = player.get_single_mut() {
+        if player.experience >= player.next_level {
             player.experience = player.experience.saturating_sub(player.next_level);
-            skill.cooldown = Timer::from_seconds(skill.cooldown.duration().as_secs_f32()*0.8, TimerMode::Repeating);
-            
+            skill.cooldown = Timer::from_seconds(
+                skill.cooldown.duration().as_secs_f32() * 0.8,
+                TimerMode::Repeating,
+            );
         }
     }
 }
-
 
 #[derive(Component, Default)]
 pub struct Player {

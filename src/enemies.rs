@@ -162,7 +162,7 @@ fn spawn_slime(
             },
         );
     let layout = atlas_layouts.add(TextureAtlasLayout::from_grid(
-        Vec2::new(100.0, 100.0),
+        UVec2::new(100, 100),
         6,
         6,
         None,
@@ -171,13 +171,13 @@ fn spawn_slime(
     origin.z = 5.0;
     commands
         .spawn(slime)
-        .insert(SpriteSheetBundle {
+        .insert(SpriteBundle {
             texture,
-            atlas: TextureAtlas {
-                layout,
-                ..default()
-            },
             transform: Transform::from_translation(origin),
+            ..default()
+        })
+        .insert(TextureAtlas {
+            layout,
             ..default()
         })
         .insert(Collider::cuboid(16.0, 16.0))
@@ -254,19 +254,13 @@ fn slime_death(
 }
 fn slime_hurt(
     mut commands: Commands,
-    mut slimes: Query<Entity, (With<Slime>, Without<Dead>, Added<Hurt>)>,
+    slimes: Query<Entity, (With<Slime>, Without<Dead>, Added<Hurt>)>,
     library: Res<SpritesheetLibrary>,
 ) {
     for slime in slimes.iter() {
-        // hurt.timer.tick(time.delta());
-        // if hurt_ref.is_added(){
         commands.entity(slime).insert(SpritesheetAnimation::from_id(
             library.animation_with_name(SLIME_HURT_ANIMATION).unwrap(),
         ));
-        // }
-        // if hurt.timer.just_finished(){
-        //     commands.entity(slime).remove::<Hurt>();
-        // }
     }
 }
 

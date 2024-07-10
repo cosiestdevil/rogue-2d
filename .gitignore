@@ -1,3 +1,6 @@
 /target
 /assets/TinyCharacters
 /assets/enemy_health_bars_2.0
+*.pdn
+
+*.webp

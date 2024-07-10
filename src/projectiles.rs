@@ -52,7 +52,7 @@ fn spawn_pure_projectile(
                 },
             );
             let layout = atlas_layouts.add(TextureAtlasLayout::from_grid(
-                Vec2::new(200.0, 200.0),
+                UVec2::new(200, 200),
                 5,
                 5,
                 None,
@@ -74,18 +74,18 @@ fn spawn_pure_projectile(
                     lifespan: Timer::from_seconds(5.0, TimerMode::Once),
                     damage: 1,
                 })
-                .insert(SpriteSheetBundle {
+                .insert(SpriteBundle {
                     texture,
-                    atlas: TextureAtlas {
-                        layout,
-                        ..default()
-                    },
                     sprite: Sprite {
                         custom_size: Some(Vec2::splat(32.0)),
                         ..default()
                     },
                     transform: Transform::from_translation(transform.translation + Vec3::Z)
                         .with_rotation(rotation),
+                    ..default()
+                })
+                .insert(TextureAtlas {
+                    layout,
                     ..default()
                 })
                 .insert(Collider::cuboid(16.0, 8.0))

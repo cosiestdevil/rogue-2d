@@ -1,12 +1,12 @@
 use bevy::{
-    ecs::{system::CommandQueue, world},
+    ecs::world::CommandQueue,
     prelude::*,
     render::texture::{ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor},
 };
 use bevy_rapier2d::{
     control::KinematicCharacterController,
     dynamics::RigidBody,
-    geometry::{ActiveCollisionTypes, ActiveEvents, Collider, CollisionGroups, Sensor},
+    geometry::{ActiveEvents, Collider, CollisionGroups, Sensor},
     pipeline::CollisionEvent,
 };
 use bevy_spritesheet_animation::{
@@ -66,7 +66,7 @@ pub fn spawn_experience_pickup(
         }
     });
     let layout = atlas_layouts.add(TextureAtlasLayout::from_grid(
-        Vec2::new(128.0, 128.0),
+        UVec2::new(128, 128),
         4,
         1,
         None,
@@ -75,17 +75,17 @@ pub fn spawn_experience_pickup(
     let animation_id = library.animation_with_name(EXP_ANIMATION).unwrap();
     command_queue.push(move |world: &mut World| {
         world
-            .spawn(SpriteSheetBundle {
+            .spawn(SpriteBundle {
                 sprite: Sprite {
                     custom_size: Some(Vec2::splat(16.0)),
                     ..default()
                 },
                 texture: texture.clone(),
-                atlas: TextureAtlas {
-                    layout: layout.clone(),
-                    ..default()
-                },
                 transform: origin,
+                ..default()
+            })
+            .insert(TextureAtlas {
+                layout: layout.clone(),
                 ..default()
             })
             .insert(Pickup {
@@ -114,18 +114,15 @@ fn toggle_attact_pickup(
     pickups: Query<(), (With<Pickup>, Without<PlayerPickup>)>,
 ) {
     for collision_event in collision_events.read() {
-        match collision_event {
-            CollisionEvent::Started(a, b, _flags) => {
-                if player.get(*a).is_ok() && pickups.get(*b).is_ok() {
-                    let mut pickup = commands.entity(*b);
-                    pickup.insert(AttractedTo);
-                }
-                if player.get(*b).is_ok() && pickups.get(*a).is_ok() {
-                    let mut pickup = commands.entity(*a);
-                    pickup.insert(AttractedTo);
-                }
+        if let CollisionEvent::Started(a, b, _flags) = collision_event {
+            if player.get(*a).is_ok() && pickups.get(*b).is_ok() {
+                let mut pickup = commands.entity(*b);
+                pickup.insert(AttractedTo);
             }
-            CollisionEvent::Stopped(a, b, _flags) => {}
+            if player.get(*b).is_ok() && pickups.get(*a).is_ok() {
+                let mut pickup = commands.entity(*a);
+                pickup.insert(AttractedTo);
+            }
         }
     }
 }
@@ -154,22 +151,19 @@ fn pickup_pickup(
     pickups: Query<&Pickup, Without<Player>>,
 ) {
     for collision_event in collision_events.read() {
-        match collision_event {
-            CollisionEvent::Started(a, b, _flags) => {
-                if let Ok(mut player) = player.get_mut(*a) {
-                    if let Ok(pickup) = pickups.get(*b) {
-                        (pickup.action)(&mut player);
-                        commands.entity(*b).despawn_recursive();
-                    }
-                }
-                if let Ok(mut player) = player.get_mut(*b) {
-                    if let Ok(pickup) = pickups.get(*a) {
-                        (pickup.action)(&mut player);
-                        commands.entity(*a).despawn_recursive();
-                    }
+        if let CollisionEvent::Started(a, b, _flags) = collision_event {
+            if let Ok(mut player) = player.get_mut(*a) {
+                if let Ok(pickup) = pickups.get(*b) {
+                    (pickup.action)(&mut player);
+                    commands.entity(*b).despawn_recursive();
                 }
             }
-            CollisionEvent::Stopped(a, b, _flags) => {}
+            if let Ok(mut player) = player.get_mut(*b) {
+                if let Ok(pickup) = pickups.get(*a) {
+                    (pickup.action)(&mut player);
+                    commands.entity(*a).despawn_recursive();
+                }
+            }
         }
     }
 }
