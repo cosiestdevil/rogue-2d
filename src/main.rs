@@ -1,12 +1,11 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![allow(clippy::type_complexity)]
 
 use std::time::Duration;
 
 use bevy::{
     //core::FrameCount,
-    prelude::*,
-    render::texture::{ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor},
-    utils::HashMap,
+    log::LogPlugin, prelude::*, render::texture::{ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor}, utils::HashMap
 };
 use bevy_rapier2d::prelude::*;
 use bevy_spritesheet_animation::{
@@ -22,7 +21,7 @@ mod pickups;
 mod projectiles;
 fn main() {
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins);
+    app.add_plugins(DefaultPlugins.set(LogPlugin{level:bevy::log::Level::DEBUG,..default()}));
     app.add_plugins(SpritesheetAnimationPlugin);
     app.add_plugins(input::InputPlugin);
     app.add_plugins(generation::GenerationPlugin);

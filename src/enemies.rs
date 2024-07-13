@@ -52,7 +52,7 @@ impl Plugin for EnemiesPlugin {
             cooldown: Timer::from_seconds(3.0, TimerMode::Once),
             cooldown_func: |time| {
                 let delay = (time.as_secs_f32() / 150.0).cos() * 2.5;
-                Duration::from_secs_f32(delay)
+                Duration::from_secs_f32(delay.max(0.0))
             },
         });
     }
@@ -182,7 +182,7 @@ fn spawn_slime(
         })
         .insert(Collider::cuboid(16.0, 16.0))
         .insert(LockedAxes::ROTATION_LOCKED)
-        .insert(Restitution::coefficient(2.0))
+        .insert(Restitution::coefficient(0.5))
         .insert(RigidBody::Dynamic)
         .insert(Health {
             current: 2,
@@ -193,7 +193,7 @@ fn spawn_slime(
         .insert(DamageBuffer::default())
         .insert(CollisionGroups::new(
             ENEMY_GROUP,
-            PLAYER_GROUP | PROJECTILE_GROUP,
+            ENEMY_GROUP|PLAYER_GROUP | PROJECTILE_GROUP,
         ))
         .insert(KinematicCharacterController::default())
         .insert(SpritesheetAnimation::from_id(
@@ -249,6 +249,9 @@ fn slime_death(
             slime.try_insert(Dead {
                 timer: Timer::from_seconds(1.0, TimerMode::Once),
             });
+            slime.remove::<Collider>();
+            slime.remove::<RigidBody>();
+            slime.remove::<KinematicCharacterController>();
         }
     }
 }

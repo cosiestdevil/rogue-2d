@@ -117,11 +117,11 @@ fn toggle_attact_pickup(
         if let CollisionEvent::Started(a, b, _flags) = collision_event {
             if player.get(*a).is_ok() && pickups.get(*b).is_ok() {
                 let mut pickup = commands.entity(*b);
-                pickup.insert(AttractedTo);
+                pickup.try_insert(AttractedTo);
             }
             if player.get(*b).is_ok() && pickups.get(*a).is_ok() {
                 let mut pickup = commands.entity(*a);
-                pickup.insert(AttractedTo);
+                pickup.try_insert(AttractedTo);
             }
         }
     }
