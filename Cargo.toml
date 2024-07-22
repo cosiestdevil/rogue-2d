@@ -9,7 +9,7 @@ bevy = "0.14.0"
 bevy_ineffable = "0.6.0"
 bevy_rapier2d = { version = "0.27", features = [ "simd-stable", "debug-render-2d" ] }
 bevy_spritesheet_animation = "0.2.0"
-image = { version = "0.25.1",features = ["rayon"] }
+image = { version = "0.25.2",features = ["rayon"] }
 noise = { version = "0.9.0" }
 rand = "0.8.5"
 rayon = "1.10.0"
