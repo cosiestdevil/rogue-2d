@@ -1115,9 +1115,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_spritesheet_animation"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d67c125c330bc5410944b6a7b28aff86c7763ee3a60609c97fc61cd053bd997"
+checksum = "15e1449e25b4970665d63ab1195e0ea015a76a6f1312b403565a04b7bd189684"
 dependencies = [
  "bevy",
  "itertools",
